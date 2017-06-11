@@ -5,4 +5,6 @@ language: java
 services:
   - docker
 
-script: mvn verify
+script:
+- mvn verify
+- mvn coveralls:report
