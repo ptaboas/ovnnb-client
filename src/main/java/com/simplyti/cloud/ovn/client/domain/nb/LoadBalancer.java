@@ -11,18 +11,20 @@ import lombok.Getter;
 @Getter
 public class LoadBalancer {
 	
-	public LoadBalancer(String name, Map<String,String> vips, Map<String, String> externalIds) {
-		this(null,name,vips,externalIds);
+	public LoadBalancer(String name, Protocol protocol, Map<String,String> vips, Map<String, String> externalIds) {
+		this(null,name,protocol.getValue(),vips,externalIds);
 	}
 	
 	@JsonCreator
 	public LoadBalancer(
 			@JsonProperty("_uuid") UUID uuid,
 			@JsonProperty("name") String name, 
+			@JsonProperty("protocol") String protocol, 
 			@JsonProperty("vips")  Map<String,String> vips, 
 		 @JsonProperty("external_ids") Map<String,String> externalIds){
 		this.uuid=uuid;
 		this.name=name;
+		this.protocol=protocol;
 		this.vips=vips;
 		this.externalIds=externalIds;
 	}
@@ -30,6 +32,7 @@ public class LoadBalancer {
 
 	private final UUID uuid;
 	private final String name;
+	private final String protocol;
 	private final Map<String,String> vips;
 	@JsonProperty("external_ids")
 	private final Map<String,String> externalIds;

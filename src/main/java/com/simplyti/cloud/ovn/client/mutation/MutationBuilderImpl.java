@@ -1,5 +1,6 @@
 package com.simplyti.cloud.ovn.client.mutation;
 
+import java.util.Map;
 import java.util.Set;
 
 public class MutationBuilderImpl implements MutationBuilder {
@@ -13,6 +14,11 @@ public class MutationBuilderImpl implements MutationBuilder {
 	@Override
 	public Mutation insert(Set<?> values) {
 		return new Mutation(field,Mutator.INSERT,values);
+	}
+	
+	@Override
+	public Mutation insert(Map<?,?> entry) {
+		return new Mutation(field,Mutator.INSERT,entry);
 	}
 
 }

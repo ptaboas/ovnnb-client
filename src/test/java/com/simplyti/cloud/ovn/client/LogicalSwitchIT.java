@@ -12,6 +12,7 @@ import com.simplyti.cloud.ovn.client.OVNNbClient;
 import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
 
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 
 import static org.junit.Assert.assertThat;
@@ -31,9 +32,12 @@ public class LogicalSwitchIT {
 	
 	@Before
 	public void createClient() throws InterruptedException {
+		NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
+		
 		this.client = OVNNbClient.builder()
+				.eventLoop(eventLoopGroup)
 				.server("localhost",6641)
-				.verbose()
+				.verbose(true)
 				.build();
 		this.client.deleteLogicalSwitchs(Criteria.field("external_ids").includes(TEST_ENTRY_ID)).sync();
 	}

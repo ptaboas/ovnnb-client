@@ -9,12 +9,15 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.common.collect.ImmutableSet;
 import com.simplyti.cloud.ovn.client.OVNNbClient;
 import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.domain.Address;
 import com.simplyti.cloud.ovn.client.domain.nb.LoadBalancer;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
+import com.simplyti.cloud.ovn.client.domain.nb.Protocol;
 
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 
 import static org.junit.Assert.assertFalse;
@@ -25,6 +28,8 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasSize;
 
 public class LoadBalancerIT {
 	
@@ -34,9 +39,12 @@ public class LoadBalancerIT {
 	
 	@Before
 	public void createClient() throws InterruptedException {
+		NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
+		
 		this.client = OVNNbClient.builder()
+				.eventLoop(eventLoopGroup)
 				.server("localhost",6641)
-				.verbose()
+				.verbose(true)
 				.build();
 		this.client.deleteLogicalSwitchs(Criteria.field("external_ids").includes(TEST_ENTRY_ID)).sync();
 		this.client.deleteLoadBalancers(Criteria.field("external_ids").includes(TEST_ENTRY_ID)).sync();
@@ -53,32 +61,66 @@ public class LoadBalancerIT {
 	public void createLoadBalancer() throws InterruptedException{
 		Address vip = new Address("192.168.1.9", 80);
 		Collection<Address> ips = Collections.singleton(new Address("10.0.0.1", 80));
-		Future<UUID> createResult = client.createLoadBalancer("test",vip,ips,TEST_ENTRY_ID).await();
+		Future<UUID> createResult = client.createLoadBalancer("test",Protocol.TCP,vip,ips,TEST_ENTRY_ID).await();
 		assertThat(createResult.getNow(),notNullValue());
 		
 		Future<LoadBalancer> futureLoadBalancer = client.getLoadBalancer("test").await();
 		assertThat(futureLoadBalancer.getNow(),notNullValue());
 		assertThat(futureLoadBalancer.getNow().getUuid(),equalTo(createResult.getNow()));
 		assertThat(futureLoadBalancer.getNow().getName(),equalTo("test"));
+		assertThat(futureLoadBalancer.getNow().getProtocol(),equalTo(Protocol.TCP.getValue()));
+		assertThat(futureLoadBalancer.getNow().getVips().entrySet(),hasSize(1));
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:80","10.0.0.1:80"));
 	}
 	
 	@Test
-	public void createAnExistingLoadBalancer() throws InterruptedException{
+	public void createVipInExistingLoadBalancer() throws InterruptedException{
+		Future<UUID> createResult1 = client.createLoadBalancer("test",Protocol.TCP,new Address("192.168.1.9", 80),
+				ImmutableSet.of(new Address("10.0.0.1", 80),new Address("10.0.0.2", 80)),TEST_ENTRY_ID).await();
+		assertThat(createResult1.getNow(),notNullValue());
+		
+		Future<UUID> createResult2 = client.createLoadBalancer("test",Protocol.TCP,new Address("192.168.1.9", 443),
+				ImmutableSet.of(new Address("10.0.0.1", 443),new Address("10.0.0.2", 443)),TEST_ENTRY_ID).await();
+		assertThat(createResult2.getNow(),notNullValue());
+		assertThat(createResult2.getNow(),equalTo(createResult1.getNow()));
+		
+		Future<LoadBalancer> futureLoadBalancer = client.getLoadBalancer("test").await();
+		assertThat(futureLoadBalancer.getNow(),notNullValue());
+		assertThat(futureLoadBalancer.getNow().getUuid(),equalTo(createResult1.getNow()));
+		assertThat(futureLoadBalancer.getNow().getUuid(),equalTo(createResult2.getNow()));
+		assertThat(futureLoadBalancer.getNow().getName(),equalTo("test"));
+		assertThat(futureLoadBalancer.getNow().getProtocol(),equalTo(Protocol.TCP.getValue()));
+		assertThat(futureLoadBalancer.getNow().getVips().entrySet(),hasSize(2));
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:80","10.0.0.1:80,10.0.0.2:80"));
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:443","10.0.0.1:443,10.0.0.2:443"));
+	}
+	
+	@Test
+	public void cannotCreateAlreadyExistingLoadBalancerWithDifferentData() throws InterruptedException{
 		Address vip = new Address("192.168.1.9", 80);
-		Collection<Address> ips = Collections.singleton(new Address("10.0.0.1", 80));
-		client.createLoadBalancer("test",vip,ips,TEST_ENTRY_ID).await();
+		client.createLoadBalancer("test",Protocol.TCP,vip,Collections.singleton(new Address("10.0.0.1", 80)),TEST_ENTRY_ID).await();
 
-		Future<UUID> result = client.createLoadBalancer("test",vip,ips,TEST_ENTRY_ID).await();
+		Future<UUID> result = client.createLoadBalancer("test",Protocol.TCP,vip,Collections.singleton(new Address("10.0.0.2", 80)),TEST_ENTRY_ID).await();
 		assertFalse(result.isSuccess());
 		assertThat(result.cause(),instanceOf(IllegalStateException.class));
-		assertThat(result.cause().getMessage(),equalTo("Load balancer test already exists"));
+		assertThat(result.cause().getMessage(),equalTo("Load balancer test already exists with different data"));
+	}
+	
+	@Test
+	public void loadBalancerCreationWithSameDataShoulBeIdempotent() throws InterruptedException{
+		Address vip = new Address("192.168.1.9", 80);
+		UUID uuid = client.createLoadBalancer("test",Protocol.TCP,vip,Collections.singleton(new Address("10.0.0.1", 80)),TEST_ENTRY_ID).await().getNow();
+
+		Future<UUID> result = client.createLoadBalancer("test",Protocol.TCP,vip,Collections.singleton(new Address("10.0.0.1", 80)),TEST_ENTRY_ID).await();
+		assertTrue(result.isSuccess());
+		assertThat(result.getNow(),equalTo(uuid));
 	}
 	
 	@Test
 	public void deleteLoadBalancerByName() throws InterruptedException{
 		Address vip = new Address("192.168.1.9", 80);
 		Collection<Address> ips = Collections.singleton(new Address("10.0.0.1", 80));
-		client.createLoadBalancer("test",vip,ips,TEST_ENTRY_ID).await();
+		client.createLoadBalancer("test",Protocol.TCP,vip,ips,TEST_ENTRY_ID).await();
 		
 		Future<Void> deleteResult = client.deleteLoadBalancer("test").await();
 		assertTrue(deleteResult.isSuccess());
@@ -91,7 +133,7 @@ public class LoadBalancerIT {
 	public void attachLoadBalancerToLogicalSwitch() throws InterruptedException{
 		Address vip = new Address("192.168.1.9", 80);
 		Collection<Address> ips = Collections.singleton(new Address("10.0.0.1", 80));
-		Future<UUID> lb = client.createLoadBalancer("lb1",vip,ips,TEST_ENTRY_ID).await();
+		Future<UUID> lb = client.createLoadBalancer("lb1",Protocol.TCP,vip,ips,TEST_ENTRY_ID).await();
 		client.createLogicalSwitch("switch1",TEST_ENTRY_ID).await();
 		
 		Future<Void> result = client.attachLoadBalancerToSwitch("lb1","switch1").await();

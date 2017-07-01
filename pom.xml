@@ -15,6 +15,7 @@
 		<maven-failsafe-plugin.version>2.20</maven-failsafe-plugin.version>
 		<exec-maven-plugin.version>1.6.0</exec-maven-plugin.version>
 		<jacoco-maven-plugin.version>0.7.9</jacoco-maven-plugin.version>
+		<coveralls-maven-plugin.version>4.3.0</coveralls-maven-plugin.version>
 
 		<lombok.version>1.16.16</lombok.version>
 		<netty.version>4.1.11.Final</netty.version>
@@ -44,7 +45,7 @@
 				<plugin>
 				    <groupId>org.eluder.coveralls</groupId>
 				    <artifactId>coveralls-maven-plugin</artifactId>
-				    <version>4.3.0</version>
+				    <version>${coveralls-maven-plugin.version}</version>
 				    <configuration>
 				        <repoToken>${coveralls.token}</repoToken>
 				    </configuration>
