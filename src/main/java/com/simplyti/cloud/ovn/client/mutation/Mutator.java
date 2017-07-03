@@ -7,7 +7,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum Mutator {
 	
-	INSERT("insert");
+	INSERT("insert"),
+	DELETE("delete");
 	
 	private final String operand;
 

@@ -9,4 +9,6 @@ public interface MutationBuilder {
 	
 	Mutation insert(Map<?,?> entry);
 
+	Mutation delete(Set<?> values);
+
 }

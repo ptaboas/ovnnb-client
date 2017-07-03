@@ -21,4 +21,9 @@ public class MutationBuilderImpl implements MutationBuilder {
 		return new Mutation(field,Mutator.INSERT,entry);
 	}
 
+	@Override
+	public Mutation delete(Set<?> values) {
+		return new Mutation(field,Mutator.DELETE,values);
+	}
+
 }
