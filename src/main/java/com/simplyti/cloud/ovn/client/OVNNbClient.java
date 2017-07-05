@@ -24,6 +24,7 @@ import com.simplyti.cloud.ovn.client.domain.nb.AttachLoadBalancerToSwitchRequest
 import com.simplyti.cloud.ovn.client.domain.nb.CreateLoadBalancerRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.CreateLogicalSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DeleteLoadBalancerRequest;
+import com.simplyti.cloud.ovn.client.domain.nb.DeleteLoadBalancerVipRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DeleteLogicalSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DettachLoadBalancerRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.GetLoadBalancerRequest;
@@ -31,6 +32,7 @@ import com.simplyti.cloud.ovn.client.domain.nb.GetLogicalSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.LoadBalancer;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
 import com.simplyti.cloud.ovn.client.domain.nb.Protocol;
+import com.simplyti.cloud.ovn.client.domain.nb.UpdateLoadBalancerVipRequest;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -186,6 +188,19 @@ public class OVNNbClient {
 		return promise;
 	}
 	
+	public Future<Void> deleteLoadBalancerVip(String name, Address vip) {
+		Promise<Void> promise = executor.next().newPromise();
+		acquireChannel().addListener(future->{
+			int id = requestId.getAndIncrement();
+			Channel channel = (Channel) future.getNow();
+			channel.attr(CONSUMERS).get().put(id, results->{
+				promise.setSuccess(null);
+			});
+			channel.writeAndFlush(new DeleteLoadBalancerVipRequest(id,name,vip.toString()));
+		});
+		return promise;
+	}
+	
 	public Future<Void> dettachLoadBalancer(UUID lbuuid) {
 		Promise<Void> promise = executor.next().newPromise();
 		acquireChannel().addListener(future->{
@@ -238,6 +253,7 @@ public class OVNNbClient {
 	}
 
 	public Future<UUID> createLoadBalancer(String name, Collection<String> attachedSwitches,  Protocol protocol, Address vip,  Collection<Address> ips, Map<String, String> externalIds) {
+		log.info("Create load balancer {}: {}={}",name,vip,ips);
 		Promise<UUID> promise = executor.next().newPromise();
 		getLoadBalancer(name).addListener(future->{
 			if(future.getNow()==null){
@@ -259,14 +275,25 @@ public class OVNNbClient {
 				LoadBalancer existingLoadBalancer = (LoadBalancer) future.getNow();
 				String existingTargets = existingLoadBalancer.getVips().get(Joiner.on(':').join(vip.getHost(),vip.getPort()));
 				if(existingTargets!=null){
-					if(existingLoadBalancer.getProtocol().equals(protocol.getValue())
-							&& sameTargets(existingTargets, ips)){
-						log.info("Load balancer {} for vip {} already exist, do nothing",name,vip);
-						promise.setSuccess(existingLoadBalancer.getUuid());
+					if(existingLoadBalancer.getProtocol().equals(protocol.getValue())){
+						if(sameTargets(existingTargets, ips)){
+							log.info("Load balancer {} for vip {} already exist, do nothing",name,vip);
+							promise.setSuccess(existingLoadBalancer.getUuid());
+						}else{
+							updateLoadBalancerVip(existingLoadBalancer.getUuid(),vip,ips)
+								.addListener(updateFuture->{
+									if(updateFuture.isSuccess()){
+										promise.setSuccess(existingLoadBalancer.getUuid());
+									}else{
+										promise.setFailure(updateFuture.cause());
+									}
+								});
+						}
 					}else{
 						promise.setFailure(new IllegalStateException("Load balancer "+name+" already exists with different data"));
 					}
 				}else{
+					log.info("New vip for lb {}: {}={}",name,vip,ips);
 					addLoadBalancerVip(promise,existingLoadBalancer.getUuid(),vip,ips);
 				}
 			}
@@ -308,6 +335,25 @@ public class OVNNbClient {
 				promise.setSuccess(lbId);
 			});
 			channel.writeAndFlush(new AddLoadBalancerVipRequest(id,lbId,
+					Collections.singletonMap(toEndpoint(vip), 
+							ips.stream().map(this::toEndpoint).collect(Collectors.joining( "," )))));
+		});
+	}
+	
+	public Future<Void> updateLoadBalancerVip(UUID lbId, Address vip, Collection<Address> ips) {
+		Promise<Void> promise = executor.next().newPromise();
+		updateLoadBalancerVip(promise,lbId, vip, ips);
+		return promise;
+	}
+	
+	private void updateLoadBalancerVip(Promise<Void> promise, UUID lbId, Address vip, Collection<Address> ips) {
+		acquireChannel().addListener(future->{
+			int id = requestId.getAndIncrement();
+			Channel channel = (Channel) future.getNow();
+			channel.attr(CONSUMERS).get().put(id, results->{
+				promise.setSuccess(null);
+			});
+			channel.writeAndFlush(new UpdateLoadBalancerVipRequest(id,lbId,
 					Collections.singletonMap(toEndpoint(vip), 
 							ips.stream().map(this::toEndpoint).collect(Collectors.joining( "," )))));
 		});

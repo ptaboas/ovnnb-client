@@ -195,4 +195,58 @@ public class LoadBalancerIT {
 		assertThat(switch1.getNow().getLoadBalancers(),empty());
 	}
 	
+	@Test
+	public void updateLoadBalancer() throws InterruptedException{
+		this.client.createLogicalSwitch("testLs", TEST_ENTRY_ID);
+		
+		Address vip = new Address("192.168.1.9", 80);
+		Collection<Address> ips = Collections.singleton(new Address("10.0.0.1", 80));
+		Future<UUID> createResult = client.createLoadBalancer("test",Collections.singleton("testLs"),Protocol.TCP,vip,ips,TEST_ENTRY_ID).await();
+		assertThat(createResult.getNow(),notNullValue());
+		
+		Future<LoadBalancer> futureLoadBalancer = client.getLoadBalancer("test").await();
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:80","10.0.0.1:80"));
+		
+		Future<Void> updateResult = client.updateLoadBalancerVip(createResult.getNow(),vip,ImmutableSet.of(new Address("10.0.0.1", 80),new Address("10.0.0.2", 80))).await();
+		assertTrue(updateResult.isSuccess());
+		
+		futureLoadBalancer = client.getLoadBalancer("test").await();
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:80","10.0.0.1:80,10.0.0.2:80"));
+	}
+	
+	@Test
+	public void deleteLoadBalancerVip() throws InterruptedException{
+		this.client.createLogicalSwitch("testLs", TEST_ENTRY_ID);
+		
+		Future<UUID> createResult = client.createLoadBalancer("test",
+				Collections.singleton("testLs"),Protocol.TCP,
+				new Address("192.168.1.9", 80),
+				Collections.singleton(new Address("10.0.0.1", 80)),
+				TEST_ENTRY_ID).await();
+		assertThat(createResult.getNow(),notNullValue());
+		
+		Future<LoadBalancer> futureLoadBalancer = client.getLoadBalancer("test").await();
+		assertThat(futureLoadBalancer.getNow().getVips().size(),equalTo(1));
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:80","10.0.0.1:80"));
+		
+		createResult = client.createLoadBalancer("test",
+				Collections.singleton("testLs"),Protocol.TCP,
+				new Address("192.168.1.9", 443),
+				Collections.singleton(new Address("10.0.0.1", 443)),
+				TEST_ENTRY_ID).await();
+		assertThat(createResult.getNow(),notNullValue());
+		
+		futureLoadBalancer = client.getLoadBalancer("test").await();
+		assertThat(futureLoadBalancer.getNow().getVips().size(),equalTo(2));
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:80","10.0.0.1:80"));
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:443","10.0.0.1:443"));
+		
+		Future<Void> deleteResult = client.deleteLoadBalancerVip("test", new Address("192.168.1.9", 80)).await();
+		assertTrue(deleteResult.isSuccess());
+		
+		futureLoadBalancer = client.getLoadBalancer("test").await();
+		assertThat(futureLoadBalancer.getNow().getVips().size(),equalTo(1));
+		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:443","10.0.0.1:443"));
+	}
+	
 }

@@ -9,7 +9,8 @@ public enum OVSDBOperation {
 	INSERT("insert"),
 	SELECT("select"), 
 	DELETE("delete"), 
-	MUTATE("mutate");
+	MUTATE("mutate"), 
+	UPDATE("update");
 	
 	@Getter
 	private final String name;

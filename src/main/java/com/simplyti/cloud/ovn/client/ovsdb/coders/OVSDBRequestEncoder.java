@@ -21,6 +21,7 @@ import com.simplyti.cloud.ovn.client.domain.db.OVSDBInsertRequest;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBMutateRequest;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBOperationRequest;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBSelectRequest;
+import com.simplyti.cloud.ovn.client.domain.db.OVSDBUpdateRequest;
 import com.simplyti.cloud.ovn.client.domain.wire.OVSRequest;
 import com.simplyti.cloud.ovn.client.jsonrpc.domain.JsonRpcRequest;
 import com.simplyti.cloud.ovn.client.mutation.Mutation;
@@ -76,6 +77,12 @@ public class OVSDBRequestEncoder extends MessageToMessageEncoder<OVSRequest>{
 				OVSDBDeleteRequest delete = (OVSDBDeleteRequest) operation;
 				return builder(delete)
 					.put("where",where(delete.getCriteria()))
+					.build();
+			}else if(operation instanceof OVSDBUpdateRequest){
+				OVSDBUpdateRequest update = (OVSDBUpdateRequest) operation;
+				return builder(update)
+					.put("where",where(update.getCriteria()))
+					.put("row",buildObject(update.getRow()))
 					.build();
 			}else{
 				throw new IllegalStateException("Unknown operation type "+operation.getClass());
