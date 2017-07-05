@@ -113,7 +113,7 @@ public class LoadBalancerIT {
 		Address vip = new Address("192.168.1.9", 80);
 		client.createLoadBalancer("test",Collections.singleton("test"),Protocol.TCP,vip,Collections.singleton(new Address("10.0.0.1", 80)),TEST_ENTRY_ID).await();
 
-		Future<UUID> result = client.createLoadBalancer("test",Collections.singleton("testLs"),Protocol.TCP,vip,Collections.singleton(new Address("10.0.0.2", 80)),TEST_ENTRY_ID).await();
+		Future<UUID> result = client.createLoadBalancer("test",Collections.singleton("testLs"),Protocol.UDP,vip,Collections.singleton(new Address("10.0.0.2", 80)),TEST_ENTRY_ID).await();
 		assertFalse(result.isSuccess());
 		assertThat(result.cause(),instanceOf(IllegalStateException.class));
 		assertThat(result.cause().getMessage(),equalTo("Load balancer test already exists with different data"));
