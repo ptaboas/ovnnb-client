@@ -1,10 +1,18 @@
+language: java
+
 sudo: required
 
-language: java
+install: true
 
 services:
   - docker
 
+cache:
+  directories:
+    - '$HOME/.m2/repository'
+
 script:
 - mvn verify
-- mvn coveralls:report
+
+after_success:
+- .travis/deploy.sh
