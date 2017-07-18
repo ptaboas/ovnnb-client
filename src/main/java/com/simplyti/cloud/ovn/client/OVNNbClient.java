@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.domain.Address;
+import com.simplyti.cloud.ovn.client.domain.Vip;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBOperationResult;
 import com.simplyti.cloud.ovn.client.domain.nb.AddLoadBalancerVipRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.AttachLoadBalancerToSwitchRequest;
@@ -103,10 +104,10 @@ public class OVNNbClient {
 		return promise;
 	}
 	
-	public Future<LoadBalancer> getLoadBalancer(String name) {
+	public Future<LoadBalancer> getLoadBalancer(String name,Protocol protocol) {
 		Promise<LoadBalancer> promise = executor.next().newPromise();
 		acquireChannel().addListener(future->{
-			GetLoadBalancerRequest request = new GetLoadBalancerRequest(requestId.getAndIncrement(),name);
+			GetLoadBalancerRequest request = new GetLoadBalancerRequest(requestId.getAndIncrement(),lbId(name, protocol));
 			Channel channel = (Channel) future.getNow();
 			channel.attr(CONSUMERS).get().put(request.getId(), results->{
 				if(results.get(0).results().isEmpty()){
@@ -165,9 +166,9 @@ public class OVNNbClient {
 		return promise;
 	}
 	
-	public Future<Void> deleteLoadBalancer(String name) {
+	public Future<Void> deleteLoadBalancer(String name,Protocol protocol) {
 		Promise<Void> promise = executor.next().newPromise();
-		getLoadBalancer(name).addListener(futureLb->{
+		getLoadBalancer(name,protocol).addListener(futureLb->{
 			if(futureLb.isSuccess()){
 				if(futureLb.getNow()==null){
 					promise.setSuccess(null);
@@ -175,7 +176,7 @@ public class OVNNbClient {
 					LoadBalancer lb = (LoadBalancer) futureLb.getNow();
 					dettachLoadBalancer(lb.getUuid()).addListener(futureDettach->{
 						if(futureDettach.isSuccess()){
-							deleteLoadBalancers(promise,Criteria.field("name").eq(name));
+							deleteLoadBalancers(promise,Criteria.field("name").eq(lbId(name, protocol)));
 						}else{
 							promise.setFailure(futureDettach.cause());
 						}
@@ -188,7 +189,7 @@ public class OVNNbClient {
 		return promise;
 	}
 	
-	public Future<Void> deleteLoadBalancerVip(String name, Address vip) {
+	public Future<Void> deleteLoadBalancerVip(String name, Vip vip) {
 		Promise<Void> promise = executor.next().newPromise();
 		acquireChannel().addListener(future->{
 			int id = requestId.getAndIncrement();
@@ -196,7 +197,7 @@ public class OVNNbClient {
 			channel.attr(CONSUMERS).get().put(id, results->{
 				promise.setSuccess(null);
 			});
-			channel.writeAndFlush(new DeleteLoadBalancerVipRequest(id,name,vip.toString()));
+			channel.writeAndFlush(new DeleteLoadBalancerVipRequest(id,lbId(name, vip.getProtocol()),vip.toString()));
 		});
 		return promise;
 	}
@@ -231,9 +232,9 @@ public class OVNNbClient {
 		return promise;
 	}
 
-	public Future<Void> attachLoadBalancerToSwitch(String loadBalancer, String logicalSwitch) {
+	public Future<Void> attachLoadBalancerToSwitch(String name, Protocol protocol, String logicalSwitch) {
 		Promise<Void> promise = executor.next().newPromise();
-		getLoadBalancer(loadBalancer).addListener(future->{
+		getLoadBalancer(name,protocol).addListener(future->{
 			LoadBalancer lb = (LoadBalancer) future.getNow();
 			attachLoadBalancerToSwitch(promise,lb.getUuid(),Collections.singleton(logicalSwitch));
 		});
@@ -251,13 +252,17 @@ public class OVNNbClient {
 		});
 		return promise;
 	}
+	
+	private String lbId(String name,Protocol protocol) {
+		return Joiner.on(':').join(name,protocol.getValue());
+	}
 
-	public Future<UUID> createLoadBalancer(String name, Collection<String> attachedSwitches,  Protocol protocol, Address vip,  Collection<Address> ips, Map<String, String> externalIds) {
-		log.info("Create load balancer {}: {}={}",name,vip,ips);
+	public Future<UUID> createLoadBalancer(String name, Collection<String> attachedSwitches, Vip vip,  Collection<Address> ips, Map<String, String> externalIds) {
+		log.info("Create load balancer {}[{}]: {}={}",name,vip.getProtocol(),vip,ips);
 		Promise<UUID> promise = executor.next().newPromise();
-		getLoadBalancer(name).addListener(future->{
+		getLoadBalancer(name,vip.getProtocol()).addListener(future->{
 			if(future.getNow()==null){
-				createLoadBalancer(executor.next().newPromise(),name, protocol, vip,ips,externalIds).addListener(futureLb->{
+				createLoadBalancer(executor.next().newPromise(),name, vip,ips,externalIds).addListener(futureLb->{
 						if(futureLb.isSuccess()){
 							UUID lbUid = (UUID) futureLb.get();
 							attachLoadBalancerToSwitch(executor.next().newPromise(), lbUid, attachedSwitches).addListener(futureAttach->{
@@ -275,25 +280,21 @@ public class OVNNbClient {
 				LoadBalancer existingLoadBalancer = (LoadBalancer) future.getNow();
 				String existingTargets = existingLoadBalancer.getVips().get(Joiner.on(':').join(vip.getHost(),vip.getPort()));
 				if(existingTargets!=null){
-					if(existingLoadBalancer.getProtocol().equals(protocol.getValue())){
-						if(sameTargets(existingTargets, ips)){
-							log.info("Load balancer {} for vip {} already exist, do nothing",name,vip);
-							promise.setSuccess(existingLoadBalancer.getUuid());
-						}else{
-							updateLoadBalancerVip(existingLoadBalancer.getUuid(),vip,ips)
-								.addListener(updateFuture->{
-									if(updateFuture.isSuccess()){
-										promise.setSuccess(existingLoadBalancer.getUuid());
-									}else{
-										promise.setFailure(updateFuture.cause());
-									}
-								});
-						}
+					if(sameTargets(existingTargets, ips)){
+						log.info("Load balancer {}[{}] for vip {} already exist, do nothing",name,vip.getProtocol(),vip);
+						promise.setSuccess(existingLoadBalancer.getUuid());
 					}else{
-						promise.setFailure(new IllegalStateException("Load balancer "+name+" already exists with different data"));
+						updateLoadBalancerVip(existingLoadBalancer.getUuid(),vip,ips)
+							.addListener(updateFuture->{
+								if(updateFuture.isSuccess()){
+									promise.setSuccess(existingLoadBalancer.getUuid());
+								}else{
+									promise.setFailure(updateFuture.cause());
+								}
+							});
 					}
 				}else{
-					log.info("New vip for lb {}: {}={}",name,vip,ips);
+					log.info("New vip for lb {}[{}]: {}={}",name,vip.getProtocol(),vip,ips);
 					addLoadBalancerVip(promise,existingLoadBalancer.getUuid(),vip,ips);
 				}
 			}
@@ -312,7 +313,7 @@ public class OVNNbClient {
 		
 	}
 	
-	private Future<UUID> createLoadBalancer(Promise<UUID> promise, String name, Protocol protocol, Address vip, Collection<Address> ips, Map<String, String> externalIds) {
+	private Future<UUID> createLoadBalancer(Promise<UUID> promise, String name, Vip vip, Collection<Address> ips, Map<String, String> externalIds) {
 		acquireChannel().addListener(future->{
 			int id = requestId.getAndIncrement();
 			Channel channel = (Channel) future.getNow();
@@ -320,14 +321,14 @@ public class OVNNbClient {
 				promise.setSuccess((UUID) results.get(0).result().get("uuid"));
 			});
 			channel.writeAndFlush(new CreateLoadBalancerRequest(id,
-					new LoadBalancer(name,protocol,Collections.singletonMap(toEndpoint(vip), 
+					new LoadBalancer(lbId(name, vip.getProtocol()),vip.getProtocol(),Collections.singletonMap(toEndpoint(vip), 
 							ips.stream().map(this::toEndpoint).collect(Collectors.joining( "," ))),
 							externalIds)));
 		});
 		return promise;
 	}
 	
-	private void addLoadBalancerVip(Promise<UUID> promise, UUID lbId, Address vip, Collection<Address> ips) {
+	private void addLoadBalancerVip(Promise<UUID> promise, UUID lbId, Vip vip, Collection<Address> ips) {
 		acquireChannel().addListener(future->{
 			int id = requestId.getAndIncrement();
 			Channel channel = (Channel) future.getNow();
@@ -340,13 +341,13 @@ public class OVNNbClient {
 		});
 	}
 	
-	public Future<Void> updateLoadBalancerVip(UUID lbId, Address vip, Collection<Address> ips) {
+	public Future<Void> updateLoadBalancerVip(UUID lbId, Vip vip, Collection<Address> ips) {
 		Promise<Void> promise = executor.next().newPromise();
 		updateLoadBalancerVip(promise,lbId, vip, ips);
 		return promise;
 	}
 	
-	private void updateLoadBalancerVip(Promise<Void> promise, UUID lbId, Address vip, Collection<Address> ips) {
+	private void updateLoadBalancerVip(Promise<Void> promise, UUID lbId, Vip vip, Collection<Address> ips) {
 		acquireChannel().addListener(future->{
 			int id = requestId.getAndIncrement();
 			Channel channel = (Channel) future.getNow();
@@ -359,6 +360,14 @@ public class OVNNbClient {
 		});
 	}
 
+	private String toEndpoint(Vip vip) {
+		if(vip.getPort()==null){
+			return vip.getHost();
+		}else{
+			return Joiner.on(':').join(vip.getHost(), vip.getPort());
+		}
+	}
+	
 	private String toEndpoint(Address vip) {
 		if(vip.getPort()==null){
 			return vip.getHost();
