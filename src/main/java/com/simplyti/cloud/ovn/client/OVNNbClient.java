@@ -36,6 +36,7 @@ import com.simplyti.cloud.ovn.client.domain.nb.LoadBalancer;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
 import com.simplyti.cloud.ovn.client.domain.nb.Protocol;
 import com.simplyti.cloud.ovn.client.domain.nb.UpdateLoadBalancerVipRequest;
+import com.simplyti.cloud.ovn.client.domain.wire.OVSRequest;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -92,51 +93,45 @@ public class OVNNbClient {
 	}
 	
 	public Future<LogicalSwitch> getLogicalSwitch(String name) {
-		Promise<LogicalSwitch> promise = executor.next().newPromise();
-		acquireChannel().addListener(future->{
-			GetLogicalSwitchRequest request = new GetLogicalSwitchRequest(requestId.getAndIncrement(),name);
-			Channel channel = (Channel) future.getNow();
-			channel.attr(CONSUMERS).get().put(request.getId(), results->{
-				if(results.get(0).results().isEmpty()){
-					promise.setSuccess(null);
-				}else{
-					promise.setSuccess(mapper.convertValue(results.get(0).result(), LogicalSwitch.class));
-				}
-			});
-			channel.writeAndFlush(request);
-		});
-		return promise;
+		return getItem(new GetLogicalSwitchRequest(requestId.getAndIncrement(),name),LogicalSwitch.class);
 	}
 	
 	public Future<List<LoadBalancer>> getLoadBalancers(Criteria criteria) {
-		Promise<List<LoadBalancer>> promise = executor.next().newPromise();
+		return getList(new GetLoadBalancersRequest(requestId.getAndIncrement(),criteria), new TypeReference<List<LoadBalancer>>(){});
+	}
+	
+	public Future<LoadBalancer> getLoadBalancer(String name,Protocol protocol) {
+		return getItem(new GetLoadBalancerRequest(requestId.getAndIncrement(),lbId(name, protocol)),LoadBalancer.class);
+	}
+	
+	private <T> Future<List<T>> getList(OVSRequest request,TypeReference<List<T>> clazz) {
+		Promise<List<T>> promise = executor.next().newPromise();
 		acquireChannel().addListener(future->{
-			GetLoadBalancersRequest request = new GetLoadBalancersRequest(requestId.getAndIncrement(),criteria);
 			Channel channel = (Channel) future.getNow();
 			channel.attr(CONSUMERS).get().put(request.getId(), results->{
-				promise.setSuccess(mapper.convertValue(results.get(0).results(), new TypeReference<List<LoadBalancer>>(){}));
+				promise.setSuccess(mapper.convertValue(results.get(0).results(), clazz));
 			});
 			channel.writeAndFlush(request);
 		});
 		return promise;
 	}
-	
-	public Future<LoadBalancer> getLoadBalancer(String name,Protocol protocol) {
-		Promise<LoadBalancer> promise = executor.next().newPromise();
+
+	private <T> Future<T> getItem(OVSRequest request,Class<T> clazz) {
+		Promise<T> promise = executor.next().newPromise();
 		acquireChannel().addListener(future->{
-			GetLoadBalancerRequest request = new GetLoadBalancerRequest(requestId.getAndIncrement(),lbId(name, protocol));
 			Channel channel = (Channel) future.getNow();
 			channel.attr(CONSUMERS).get().put(request.getId(), results->{
 				if(results.get(0).results().isEmpty()){
 					promise.setSuccess(null);
 				}else{
-					promise.setSuccess(mapper.convertValue(results.get(0).result(), LoadBalancer.class));
+					promise.setSuccess(mapper.convertValue(results.get(0).result(), clazz));
 				}
 			});
 			channel.writeAndFlush(request);
 		});
 		return promise;
 	}
+
 	
 	public Future<UUID> createLogicalSwitch(String name) {
 		return createLogicalSwitch(name,Collections.emptyMap());
@@ -161,8 +156,7 @@ public class OVNNbClient {
 			channel.attr(CONSUMERS).get().put(id, results->{
 				promise.setSuccess((UUID) results.get(0).result().get("uuid"));
 			});
-			channel.writeAndFlush(new CreateLogicalSwitchRequest(id,name,
-					new LogicalSwitch(name,externalIds)));
+			channel.writeAndFlush(new CreateLogicalSwitchRequest(id,name,new LogicalSwitch(name,externalIds)));
 		});
 	}
 
