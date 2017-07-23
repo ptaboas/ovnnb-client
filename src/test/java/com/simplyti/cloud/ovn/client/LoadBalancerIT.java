@@ -2,6 +2,7 @@ package com.simplyti.cloud.ovn.client;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -52,9 +53,9 @@ public class LoadBalancerIT {
 	
 	@After
 	public void desrtoyClient() throws InterruptedException{
-		client.close();
 		this.client.deleteLogicalSwitchs(Criteria.field("external_ids").includes(TEST_ENTRY_ID)).sync();
 		this.client.deleteLoadBalancers(Criteria.field("external_ids").includes(TEST_ENTRY_ID)).sync();
+		client.close();
 	}
 	
 	@Test
@@ -233,6 +234,28 @@ public class LoadBalancerIT {
 		futureLoadBalancer = client.getLoadBalancer("test",Protocol.TCP).await();
 		assertThat(futureLoadBalancer.getNow().getVips().size(),equalTo(1));
 		assertThat(futureLoadBalancer.getNow().getVips(),hasEntry("192.168.1.9:443","10.0.0.1:443"));
+	}
+	
+	@Test
+	public void getLoadBalancers() throws InterruptedException{
+		this.client.createLogicalSwitch("testLs", TEST_ENTRY_ID);
+		
+		Future<UUID> createResult = client.createLoadBalancer("test1",Collections.singleton("testLs"),
+				new Vip("192.168.1.9", 80, Protocol.TCP),
+				Collections.singleton(new Address("10.0.0.1", 80)),
+				TEST_ENTRY_ID).await();
+		assertThat(createResult.getNow(),notNullValue());
+		
+		createResult = client.createLoadBalancer("test2",Collections.singleton("testLs"),
+				new Vip("192.168.1.10", 80, Protocol.TCP),
+				Collections.singleton(new Address("10.0.0.2", 80)),
+				TEST_ENTRY_ID).await();
+		assertThat(createResult.getNow(),notNullValue());
+		
+		Future<List<LoadBalancer>> futureLoadBalancers = client.getLoadBalancers(Criteria.field("external_ids").includes(TEST_ENTRY_ID)).await();
+		assertTrue(futureLoadBalancers.isSuccess());
+		assertThat(futureLoadBalancers.getNow(),hasSize(2));
+		
 	}
 	
 }

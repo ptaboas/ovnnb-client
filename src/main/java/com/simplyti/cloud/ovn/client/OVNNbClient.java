@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
@@ -29,6 +30,7 @@ import com.simplyti.cloud.ovn.client.domain.nb.DeleteLoadBalancerVipRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DeleteLogicalSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DettachLoadBalancerRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.GetLoadBalancerRequest;
+import com.simplyti.cloud.ovn.client.domain.nb.GetLoadBalancersRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.GetLogicalSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.LoadBalancer;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
@@ -65,6 +67,8 @@ public class OVNNbClient {
 	
 	public static final AttributeKey<Map<Integer,Consumer<List<OVSDBOperationResult>>>> CONSUMERS = AttributeKey.valueOf("handlers");
 	
+	private final Map<String,Future<LoadBalancer>> checkingLbExists = Maps.newConcurrentMap();
+	
 	public OVNNbClient(EventLoopGroup eventLoopGroup, Address server,boolean verbose) {
 		InternalLoggerFactory.setDefaultFactory(Log4J2LoggerFactory.INSTANCE);
 		this.executor = eventLoopGroup.next();
@@ -98,6 +102,19 @@ public class OVNNbClient {
 				}else{
 					promise.setSuccess(mapper.convertValue(results.get(0).result(), LogicalSwitch.class));
 				}
+			});
+			channel.writeAndFlush(request);
+		});
+		return promise;
+	}
+	
+	public Future<List<LoadBalancer>> getLoadBalancers(Criteria criteria) {
+		Promise<List<LoadBalancer>> promise = executor.next().newPromise();
+		acquireChannel().addListener(future->{
+			GetLoadBalancersRequest request = new GetLoadBalancersRequest(requestId.getAndIncrement(),criteria);
+			Channel channel = (Channel) future.getNow();
+			channel.attr(CONSUMERS).get().put(request.getId(), results->{
+				promise.setSuccess(mapper.convertValue(results.get(0).results(), new TypeReference<List<LoadBalancer>>(){}));
 			});
 			channel.writeAndFlush(request);
 		});
@@ -258,16 +275,70 @@ public class OVNNbClient {
 	}
 
 	public Future<UUID> createLoadBalancer(String name, Collection<String> attachedSwitches, Vip vip,  Collection<Address> ips, Map<String, String> externalIds) {
-		log.info("Create load balancer {}[{}]: {}={}",name,vip.getProtocol(),vip,ips);
 		Promise<UUID> promise = executor.next().newPromise();
+		String lbName = Joiner.on(':').join(name, vip.getProtocol().getValue());
+		
+		Promise<LoadBalancer> createLoadBalancerPromise = executor.next().newPromise();
+		Future<LoadBalancer> existing = checkingLbExists.computeIfAbsent(lbName, (k)->createLoadBalancerIfNotExist(createLoadBalancerPromise,name,attachedSwitches,vip,ips,externalIds));
+		
+		if(existing!=createLoadBalancerPromise){
+			log.info("Load balancer {}[{}] is being created by other",name,vip.getProtocol());
+			createLoadBalancerPromise.cancel(false);
+			existing.addListener(futureLoadBalancer->{
+				if(futureLoadBalancer.isSuccess()){
+					LoadBalancer loadBalancer = (LoadBalancer) futureLoadBalancer.getNow();
+					String existingTargets = loadBalancer.getVips().get(Joiner.on(':').join(vip.getHost(),vip.getPort()));
+					if(existingTargets!=null){
+						if(sameTargets(existingTargets, ips)){
+							log.info("Load balancer {}[{}] has vip {} updated",name,vip.getProtocol(),vip);
+							promise.setSuccess(loadBalancer.getUuid());
+						}else{
+							log.info("Load balancer {}[{}] vip {} must be updated",name,vip.getProtocol(),vip);
+							updateLoadBalancerVip(loadBalancer.getUuid(),vip,ips)
+								.addListener(updateFuture->{
+									if(updateFuture.isSuccess()){
+										promise.setSuccess(loadBalancer.getUuid());
+									}else{
+										promise.setFailure(updateFuture.cause());
+									}
+								});
+						}
+					}else{
+						log.info("Load balancer {}[{}] does not contains vip {}, add it",name,vip.getProtocol(),vip);
+						addLoadBalancerVip(promise,loadBalancer.getUuid(),vip,ips);
+					}
+				}else{
+					promise.setFailure(futureLoadBalancer.cause());
+				}
+			});
+		}else{
+			log.info("Load balancer {}[{}] is being created by this",name,vip.getProtocol(),vip);
+			existing.addListener(futureLoadBalancer->{
+				if(futureLoadBalancer.isSuccess()){
+					LoadBalancer loadBalancer = (LoadBalancer) futureLoadBalancer.getNow();
+					promise.setSuccess(loadBalancer.getUuid());
+				}else{
+					promise.setFailure(futureLoadBalancer.cause());
+				}
+			});
+		}
+		return promise;
+	}
+
+	private Future<LoadBalancer> createLoadBalancerIfNotExist(Promise<LoadBalancer> promise, String name, Collection<String> attachedSwitches, Vip vip,
+			Collection<Address> ips, Map<String, String> externalIds) {
+		log.info("Create load balancer {}[{}]: {}={}",name,vip.getProtocol(),vip,ips);
 		getLoadBalancer(name,vip.getProtocol()).addListener(future->{
-			if(future.getNow()==null){
+			if(future.getNow()!=null){
+				LoadBalancer existingLb = (LoadBalancer) future.getNow();
+				promise.setSuccess(existingLb);
+			}else{
 				createLoadBalancer(executor.next().newPromise(),name, vip,ips,externalIds).addListener(futureLb->{
 						if(futureLb.isSuccess()){
 							UUID lbUid = (UUID) futureLb.get();
 							attachLoadBalancerToSwitch(executor.next().newPromise(), lbUid, attachedSwitches).addListener(futureAttach->{
 								if(futureAttach.isSuccess()){
-									promise.setSuccess(lbUid);
+									promise.setSuccess(loadBalancer(lbUid,name, vip, ips, externalIds));
 								}else{
 									promise.setFailure(futureAttach.cause());
 								}
@@ -276,27 +347,6 @@ public class OVNNbClient {
 							promise.setFailure(futureLb.cause());
 						}
 					});
-			}else{
-				LoadBalancer existingLoadBalancer = (LoadBalancer) future.getNow();
-				String existingTargets = existingLoadBalancer.getVips().get(Joiner.on(':').join(vip.getHost(),vip.getPort()));
-				if(existingTargets!=null){
-					if(sameTargets(existingTargets, ips)){
-						log.info("Load balancer {}[{}] for vip {} already exist, do nothing",name,vip.getProtocol(),vip);
-						promise.setSuccess(existingLoadBalancer.getUuid());
-					}else{
-						updateLoadBalancerVip(existingLoadBalancer.getUuid(),vip,ips)
-							.addListener(updateFuture->{
-								if(updateFuture.isSuccess()){
-									promise.setSuccess(existingLoadBalancer.getUuid());
-								}else{
-									promise.setFailure(updateFuture.cause());
-								}
-							});
-					}
-				}else{
-					log.info("New vip for lb {}[{}]: {}={}",name,vip.getProtocol(),vip,ips);
-					addLoadBalancerVip(promise,existingLoadBalancer.getUuid(),vip,ips);
-				}
 			}
 		});
 		return promise;
@@ -321,13 +371,27 @@ public class OVNNbClient {
 				promise.setSuccess((UUID) results.get(0).result().get("uuid"));
 			});
 			channel.writeAndFlush(new CreateLoadBalancerRequest(id,
-					new LoadBalancer(lbId(name, vip.getProtocol()),vip.getProtocol(),Collections.singletonMap(toEndpoint(vip), 
-							ips.stream().map(this::toEndpoint).collect(Collectors.joining( "," ))),
-							externalIds)));
+					loadBalancer(name,vip,ips,externalIds)));
 		});
 		return promise;
 	}
 	
+	private LoadBalancer loadBalancer(UUID uuid, String name, Vip vip, Collection<Address> ips, Map<String, String> externalIds) {
+		return new LoadBalancer(uuid,
+				lbId(name, vip.getProtocol()),
+				vip.getProtocol().getValue(),
+				Collections.singletonMap(toEndpoint(vip),ips.stream().map(this::toEndpoint).collect(Collectors.joining( "," ))),
+				externalIds);
+	}
+	
+	private LoadBalancer loadBalancer(String name, Vip vip, Collection<Address> ips, Map<String, String> externalIds) {
+		return new LoadBalancer(
+				lbId(name, vip.getProtocol()),
+				vip.getProtocol(),
+				Collections.singletonMap(toEndpoint(vip),ips.stream().map(this::toEndpoint).collect(Collectors.joining( "," ))),
+				externalIds);
+	}
+
 	private void addLoadBalancerVip(Promise<UUID> promise, UUID lbId, Vip vip, Collection<Address> ips) {
 		acquireChannel().addListener(future->{
 			int id = requestId.getAndIncrement();
