@@ -12,4 +12,10 @@ public class GetLoadBalancersRequest extends OVSTransactRequest {
 		super(id, "OVN_Northbound",Collections.singleton(new OVSDBSelectRequest("Load_Balancer", 
 				Collections.singleton(criteria))));
 	}
+	
+	public GetLoadBalancersRequest(int id) {
+		super(id, "OVN_Northbound",Collections.singleton(new OVSDBSelectRequest("Load_Balancer", 
+				Collections.emptyList())));
+	}
+	
 }
