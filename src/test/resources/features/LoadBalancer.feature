@@ -115,14 +115,14 @@ Scenario: Delete Load balancer by created name
 	When I create a logical switch with name "switch"
 	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080,192.168.1.2:8080" attached to logical switch "switch"
 	Then I check that exist a load balancer with name "lb1:tcp"
-	When I delete load balancer with name "lb1:tcp"
+	When I delete load balancer with name "lb1:tcp" with forced option
 	Then I check that does not exist load balancer with name "lb1:tcp"
 	
 Scenario: Delete Load balancer by name and protocol
 	When I create a logical switch with name "switch"
 	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080,192.168.1.2:8080" attached to logical switch "switch"
 	Then I check that exist a load balancer with name "lb1:tcp"
-	When I delete "TCP" load balancer with name "lb1"
+	When I delete "TCP" load balancer with name "lb1" with forced option
 	Then I check that does not exist load balancer with name "lb1:tcp"
 	
 Scenario: Delete unexisting Load balancer
@@ -137,10 +137,18 @@ Scenario: Delete multiple load balancers
 	Then I check that exist a load balancer with name "lb1:tcp"
 	When I create a "TCP" load balancer with name "lb2", virtual ip "10.0.0.2:8080", targets "192.168.2.1:8080,192.168.2.2:8080" and external ids "testing=true" attached to logical switch "switch"
 	Then I check that exist a load balancer with name "lb1:tcp"
-	When I delete load balancers with external ids "testing=true"
+	When I delete load balancers with external ids "testing=true" with forced option
 	Then I check that exist 0 load balancers
 	
 Scenario: Get Load balancer by name and protocol
 	When I create a logical switch with name "switch"
 	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080,192.168.1.2:8080" attached to logical switch "switch"
 	Then I check that exist a "TCP" load balancer with name "lb1"
+	
+Scenario: Delete load balancer without force oprion
+	When I create a logical switch with name "switch"
+	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080,192.168.1.2:8080" attached to logical switch "switch"
+	Then I check that exist a load balancer with name "lb1:tcp"
+	When I delete load balancer with name "lb1:tcp" getting "#promise"
+	Then I check that promise "#promise" is not success
+	And I check that promise "#promise" contains ovsdb error "referential integrity violation"

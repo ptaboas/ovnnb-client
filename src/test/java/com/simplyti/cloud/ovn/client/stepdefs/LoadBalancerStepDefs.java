@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 
 import java.util.Collections;
@@ -26,6 +27,7 @@ import com.simplyti.cloud.ovn.client.domain.Vip;
 import com.simplyti.cloud.ovn.client.domain.nb.LoadBalancer;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
 import com.simplyti.cloud.ovn.client.domain.nb.Protocol;
+import com.simplyti.cloud.ovn.client.ovsdb.exceptions.OVSDBException;
 
 import cucumber.api.java.en.Given;
 import cucumber.api.java.en.Then;
@@ -44,7 +46,7 @@ public class LoadBalancerStepDefs {
 	
 	@Given("^there not exist any load balancer$")
 	public void thereNotExistAnyLoadBalancer() throws Throwable {
-		client.deleteLoadBalancers().await();
+		client.deleteLoadBalancers(true).await();
 	}
 	
 	@When("^I create a \"([^\"]*)\" load balancer with name \"([^\"]*)\", virtual ip \"([^\"]*)\", targets \"([^\"]*)\" attached to logical switch \"([^\"]*)\"$")
@@ -147,15 +149,41 @@ public class LoadBalancerStepDefs {
 		assertThat(ls.getLoadBalancers(),hasItem(lb.getUuid()));
 	}
 	
+	@When("^I delete load balancer with name \"([^\"]*)\" with forced option$")
+	public void iDeleteLoadBalancerWithNameForced(String name) throws Throwable {
+		Future<Void> result = client.deleteLoadBalancer(name,true).await();
+		assertTrue(result.isSuccess());
+	}
+	
 	@When("^I delete load balancer with name \"([^\"]*)\"$")
 	public void iDeleteLoadBalancerWithName(String name) throws Throwable {
 		Future<Void> result = client.deleteLoadBalancer(name).await();
 		assertTrue(result.isSuccess());
 	}
 	
-	@When("^I delete \"([^\"]*)\" load balancer with name \"([^\"]*)\"$")
-	public void iDeleteLoadBalancerWithName(Protocol protocol, String name) throws Throwable {
-		Future<Void> result = client.deleteLoadBalancer(name,protocol).await();
+	@When("^I delete load balancer with name \"([^\"]*)\" getting \"([^\"]*)\"$")
+	public void iDeleteLoadBalancerWithNameGetting(String name, String promise) throws Throwable {
+		scenarioData.put(promise, client.deleteLoadBalancer(name));
+	}
+	
+	@Then("^I check that promise \"([^\"]*)\" is not success$")
+	public void iCheckThatPromiseIsNotSuccess(String promiseKey) throws Throwable {
+		Promise<?> promise = (Promise<?>) scenarioData.get(promiseKey);
+		promise.await();
+		assertFalse(promise.isSuccess());
+	}
+	
+	@Then("^I check that promise \"([^\"]*)\" contains ovsdb error \"([^\"]*)\"$")
+	public void iCheckThatPromiseContainsOvsdbError(String promiseKey, String error) throws Throwable {
+		Promise<?> promise = (Promise<?>) scenarioData.get(promiseKey);
+		OVSDBException exception = (OVSDBException) promise.cause();
+		assertThat(exception.getErrors(),hasSize(1));
+		assertThat(exception.getErrors().get(0).getError(), equalTo(error));
+	}
+	
+	@When("^I delete \"([^\"]*)\" load balancer with name \"([^\"]*)\" with forced option$")
+	public void iDeleteLoadBalancerWithNameForced(Protocol protocol, String name) throws Throwable {
+		Future<Void> result = client.deleteLoadBalancer(name,protocol,true).await();
 		assertTrue(result.isSuccess());
 	}
 	
@@ -167,10 +195,10 @@ public class LoadBalancerStepDefs {
 		assertTrue(result.isSuccess());
 	}
 	
-	@When("^I delete load balancers with external ids \"([^\"]*)\"$")
-	public void iDeleteLoadBalancersWithExternalIds(String externalIds) throws Throwable {
+	@When("^I delete load balancers with external ids \"([^\"]*)\" with forced option$")
+	public void iDeleteLoadBalancersWithExternalIdsForced(String externalIds) throws Throwable {
 		Map<String, String> externalIdsMap = Splitter.on(',').withKeyValueSeparator('=').split(externalIds);
-		Future<Void> result =client.deleteLoadBalancers(Criteria.field("external_ids").includes(externalIdsMap)).await();
+		Future<Void> result =client.deleteLoadBalancers(Criteria.field("external_ids").includes(externalIdsMap),true).await();
 		assertTrue(result.isSuccess());
 	}
 	
