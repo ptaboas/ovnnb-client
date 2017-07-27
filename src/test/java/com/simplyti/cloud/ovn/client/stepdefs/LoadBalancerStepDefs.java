@@ -13,7 +13,6 @@ import static org.junit.Assert.assertThat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
@@ -51,7 +50,7 @@ public class LoadBalancerStepDefs {
 	
 	@When("^I create a \"([^\"]*)\" load balancer with name \"([^\"]*)\", virtual ip \"([^\"]*)\", targets \"([^\"]*)\" attached to logical switch \"([^\"]*)\"$")
 	public void iCreateALoadBalancerWithNameVirtualIpTargetsAttachedToLogicalSwitch(Protocol protocol, String name, String vipStr, List<String> targets, String ls) throws InterruptedException{
-		Future<UUID> result = createLoadBalancer(protocol,name,vipStr,targets,ls,null).await();
+		Future<LoadBalancer> result = createLoadBalancer(protocol,name,vipStr,targets,ls,null).await();
 		assertTrue(result.isSuccess());
 		assertThat(result.getNow(),notNullValue());
 	}
@@ -59,7 +58,7 @@ public class LoadBalancerStepDefs {
 	@When("^I create a \"([^\"]*)\" load balancer with name \"([^\"]*)\", virtual ip \"([^\"]*)\", targets \"([^\"]*)\" and external ids \"([^\"]*)\" attached to logical switch \"([^\"]*)\"$")
 	public void iCreateALoadBalancerWithNameVirtualIpTargetsAndExternalIdsAttachedToLogicalSwitch(Protocol protocol, String name, String vipStr, List<String> targets, String externalIds, String ls) throws Throwable {
 		Map<String, String> externalIdsMap = Splitter.on(',').withKeyValueSeparator('=').split(externalIds);
-		Future<UUID> result = createLoadBalancer(protocol,name,vipStr,targets,ls,externalIdsMap).await();
+		Future<LoadBalancer> result = createLoadBalancer(protocol,name,vipStr,targets,ls,externalIdsMap).await();
 		assertTrue(result.isSuccess());
 		assertThat(result.getNow(),notNullValue());
 	}
@@ -69,7 +68,7 @@ public class LoadBalancerStepDefs {
 		scenarioData.put(promisekey, createLoadBalancer(protocol,name,vipStr,targets,ls,null));
 	}
 
-	private Future<UUID> createLoadBalancer(Protocol protocol, String name, String vipStr, List<String> targets, String ls, Map<String,String> externalIds) {
+	private Future<LoadBalancer> createLoadBalancer(Protocol protocol, String name, String vipStr, List<String> targets, String ls, Map<String,String> externalIds) {
 		Iterable<String> vipIt = Splitter.on(':').split(vipStr);
 		String port = Iterables.get(vipIt, 1,null);
 		Vip vip = new Vip(Iterables.get(vipIt, 0),port!=null?Integer.parseInt(port):null,protocol);

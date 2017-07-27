@@ -16,6 +16,19 @@ Scenario: Create Load balancer
 	Then I check that logical switch "#ls" has 1 load balancer
 	And I check that logical switch "#ls" contains load balancer "#lb"
 	
+Scenario: Create 2 Load balancers with same name, same virtual ip but different targets
+	When I create a logical switch with name "switch"
+	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080" attached to logical switch "switch"
+	Then I check that exist a load balancer with name "lb1:tcp"
+	When I get the load balancer with name "lb1:tcp" as "#lb"
+	And I check that load balancer "#lb" contains virtual ip "10.0.0.1:8080" with targets "192.168.1.1:8080"
+	When I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080,192.168.1.2:8080" attached to logical switch "switch"
+	And I get the load balancer with name "lb1:tcp" as "#lb"
+	Then I check that load balancer "#lb" contains virtual ip "10.0.0.1:8080" with targets "192.168.1.1:8080,192.168.1.2:8080"
+	When I get the logical switch with name "switch" as "#ls"
+	Then I check that logical switch "#ls" has 1 load balancer
+	And I check that logical switch "#ls" contains load balancer "#lb"
+	
 Scenario: Create Load balancer with no ports
 	When I create a logical switch with name "switch"
 	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1", targets "192.168.1.1,192.168.1.2" attached to logical switch "switch"
