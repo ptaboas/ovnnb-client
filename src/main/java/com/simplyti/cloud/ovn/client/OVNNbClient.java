@@ -266,8 +266,13 @@ public class OVNNbClient {
 	}
 
 	public Future<Void> deleteLoadBalancerVip(String name, Vip vip) {
-		log.info("Delete load balancer vip {} of {}",vip,name);
 		Promise<Void> promise = eventLoopGroup.next().newPromise();
+		deleteLoadBalancerVip(promise,name,vip);
+		return promise;
+	}
+
+	public Future<Void> deleteLoadBalancerVip(Promise<Void> promise,String name, Vip vip) {
+		log.info("Delete load balancer vip {} of {}",vip,name);
 		acquireChannel().addListener(future->{
 			int id = requestId.getAndIncrement();
 			Channel channel = (Channel) future.getNow();
@@ -359,7 +364,6 @@ public class OVNNbClient {
 		Future<LoadBalancer> existing = checkingLbExists.computeIfAbsent(lbName, (k)->createLoadBalancerIfNotExist(createLoadBalancerPromise,lbName,attachedSwitches,vip,ips,externalIds));
 		
 		if(existing!=createLoadBalancerPromise){
-			log.info("Load balancer {}[{}] is being created by other",name,vip.getProtocol());
 			createLoadBalancerPromise.cancel(false);
 			existing.addListener(futureLoadBalancer->{
 				onSuccess(futureLoadBalancer,promise,result->{
@@ -368,7 +372,6 @@ public class OVNNbClient {
 				});
 			});
 		}else{
-			log.info("Load balancer {}[{}] is being created by this",name,vip.getProtocol(),vip);
 			existing.addListener(futureLoadBalancer->
 				onSuccess(futureLoadBalancer,promise,result->promise.setSuccess(((LoadBalancer) result))
 			));
@@ -380,15 +383,15 @@ public class OVNNbClient {
 		String existingTargets = loadBalancer.getVips().get(Joiner.on(':').join(vip.getHost(),vip.getPort()));
 		if(existingTargets!=null){
 			if(sameTargets(existingTargets, ips)){
-				log.info("Load balancer {}[{}] has vip {} updated",loadBalancer.getName(),vip.getProtocol(),vip);
+				log.info("Load balancer {}[{}] contains vip {} and targets are updated",loadBalancer.getName(),vip.getProtocol(),vip);
 				promise.setSuccess(loadBalancer);
 			}else{
-				log.info("Load balancer {}[{}] vip {} must be updated",loadBalancer.getName(),vip.getProtocol(),vip);
+				log.info("Load balancer {}[{}] contains vip {} but targets must be updated",loadBalancer.getName(),vip.getProtocol(),vip);
 				updateLoadBalancerVip(loadBalancer.getUuid(),vip,ips).addListener(updateFuture->
 					onSuccess(updateFuture,promise,update->promise.setSuccess(loadBalancer)));
 			}
 		}else{
-			log.info("Load balancer {}[{}] does not contains vip {}, add it",loadBalancer.getName(),vip.getProtocol(),vip);
+			log.info("Load balancer {}[{}] does not contain vip {}, creating",loadBalancer.getName(),vip.getProtocol(),vip);
 			addLoadBalancerVip(promise,loadBalancer,vip,ips);
 		}
 		
