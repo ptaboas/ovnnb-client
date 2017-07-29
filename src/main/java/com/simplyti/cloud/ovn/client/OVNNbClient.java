@@ -25,18 +25,24 @@ import com.simplyti.cloud.ovn.client.domain.Address;
 import com.simplyti.cloud.ovn.client.domain.Vip;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBOperationResult;
 import com.simplyti.cloud.ovn.client.domain.nb.AddLoadBalancerVipRequest;
+import com.simplyti.cloud.ovn.client.domain.nb.AttachLoadBalancerToRouterRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.AttachLoadBalancerToSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.CreateLoadBalancerRequest;
+import com.simplyti.cloud.ovn.client.domain.nb.CreateLogicalRouterRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.CreateLogicalSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DeleteLoadBalancerRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DeleteLoadBalancerVipRequest;
+import com.simplyti.cloud.ovn.client.domain.nb.DeleteLogicalRouterRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DeleteLogicalSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.DettachLoadBalancerRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.GetLoadBalancerRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.GetLoadBalancersRequest;
+import com.simplyti.cloud.ovn.client.domain.nb.GetLogicalRouterRequest;
+import com.simplyti.cloud.ovn.client.domain.nb.GetLogicalRoutersRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.GetLogicalSwitchRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.GetLogicalSwitchesRequest;
 import com.simplyti.cloud.ovn.client.domain.nb.LoadBalancer;
+import com.simplyti.cloud.ovn.client.domain.nb.LogicalRouter;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
 import com.simplyti.cloud.ovn.client.domain.nb.Protocol;
 import com.simplyti.cloud.ovn.client.domain.nb.UpdateLoadBalancerVipRequest;
@@ -105,8 +111,16 @@ public class OVNNbClient {
 		return getList(new GetLogicalSwitchesRequest(requestId.getAndIncrement()),new TypeReference<List<LogicalSwitch>>(){});
 	}
 	
+	public Future<List<LogicalRouter>> getlogicalRouters() {
+		return getList(new GetLogicalRoutersRequest(requestId.getAndIncrement()),new TypeReference<List<LogicalRouter>>(){});
+	}
+	
 	public Future<LogicalSwitch> getLogicalSwitch(String name) {
 		return getItem(new GetLogicalSwitchRequest(requestId.getAndIncrement(),name),LogicalSwitch.class);
+	}
+	
+	public Future<LogicalRouter> getLogicalRouter(String name) {
+		return getItem(new GetLogicalRouterRequest(requestId.getAndIncrement(),name),LogicalRouter.class);
 	}
 	
 	public Future<List<LoadBalancer>> getLoadBalancers(Criteria criteria) {
@@ -157,7 +171,7 @@ public class OVNNbClient {
 	public Future<UUID> createLogicalSwitch(String name) {
 		return createLogicalSwitch(name,Collections.emptyMap());
 	}
-
+	
 	public Future<UUID> createLogicalSwitch(String name,  Map<String,String> externalIds) {
 		Promise<UUID> promise = eventLoopGroup.next().newPromise();
 		getLogicalSwitch(name).addListener(future->{
@@ -181,6 +195,34 @@ public class OVNNbClient {
 			channel.writeAndFlush(new CreateLogicalSwitchRequest(id,name,new LogicalSwitch(name,externalIds)));
 		});
 	}
+	
+	public Future<UUID> createLogicalRouter(String name) {
+		return createLogicalRouter(name,Collections.emptyMap());
+	}
+	
+	public Future<UUID> createLogicalRouter(String name,  Map<String,String> externalIds) {
+		Promise<UUID> promise = eventLoopGroup.next().newPromise();
+		getLogicalRouter(name).addListener(future->{
+			if(future.getNow()==null){
+				createLogicalRouter(promise,name,externalIds);
+			}else{
+				LogicalRouter existing = (LogicalRouter) future.getNow();
+				promise.setSuccess(existing.getUuid());
+			}
+		});
+		return promise;
+	}
+	
+	private void createLogicalRouter(Promise<UUID> promise, String name, Map<String, String> externalIds) {
+		acquireChannel().addListener(future->{
+			int id = requestId.getAndIncrement();
+			Channel channel = (Channel) future.getNow();
+			channel.attr(CONSUMERS).get().put(id, results->{
+				onSuccess(promise,results,ovsRes->(UUID) ovsRes.get(0).result().get("uuid"));
+			});
+			channel.writeAndFlush(new CreateLogicalRouterRequest(id,name,new LogicalRouter(name,externalIds)));
+		});
+	}
 
 	public Future<Void> deleteLogicalSwitch(String name) {
 		return deleteLogicalSwitchs(Criteria.field("name").eq(name));
@@ -199,6 +241,23 @@ public class OVNNbClient {
 		return promise;
 	}
 	
+	public Future<Void> deleteLogicalRouter(String name) {
+		return deleteLogicalRouters(Criteria.field("name").eq(name));
+	}
+	
+	public Future<Void> deleteLogicalRouters(Criteria criteria) {
+		Promise<Void> promise = eventLoopGroup.next().newPromise();
+		acquireChannel().addListener(future->{
+			int id = requestId.getAndIncrement();
+			Channel channel = (Channel) future.getNow();
+			channel.attr(CONSUMERS).get().put(id, results->{
+				onSuccess(promise,results,ovsRes->null);
+			});
+			channel.writeAndFlush(new DeleteLogicalRouterRequest(id,criteria));
+		});
+		return promise;
+	}
+	
 	public Future<Void> deleteLogicalSwitches() {
 		Promise<Void> promise = eventLoopGroup.next().newPromise();
 		acquireChannel().addListener(future->{
@@ -208,6 +267,19 @@ public class OVNNbClient {
 				onSuccess(promise,results,ovsRes->null);
 			});
 			channel.writeAndFlush(new DeleteLogicalSwitchRequest(id));
+		});
+		return promise;
+	}
+	
+	public Future<Void> deleteLogicalRouters() {
+		Promise<Void> promise = eventLoopGroup.next().newPromise();
+		acquireChannel().addListener(future->{
+			int id = requestId.getAndIncrement();
+			Channel channel = (Channel) future.getNow();
+			channel.attr(CONSUMERS).get().put(id, results->{
+				onSuccess(promise,results,ovsRes->null);
+			});
+			channel.writeAndFlush(new DeleteLogicalRouterRequest(id));
 		});
 		return promise;
 	}
@@ -348,6 +420,18 @@ public class OVNNbClient {
 		return promise;
 	}
 	
+	private Future<Void> attachLoadBalancerToRouter(Promise<Void> promise, UUID lbUUID, String logicalRouter) {
+		acquireChannel().addListener(future->{
+			AttachLoadBalancerToRouterRequest req = new AttachLoadBalancerToRouterRequest(requestId.getAndIncrement(), lbUUID,logicalRouter);
+			Channel channel = (Channel) future.getNow();
+			channel.attr(CONSUMERS).get().put(req.getId(), results->{
+				onSuccess(promise,results,ovsRes->null);
+			});
+			channel.writeAndFlush(req);
+		});
+		return promise;
+	}
+	
 	private String lbId(String name,Protocol protocol) {
 		return Joiner.on(':').join(name,protocol.getValue());
 	}
@@ -355,13 +439,21 @@ public class OVNNbClient {
 	public Future<LoadBalancer> createLoadBalancer(String name, Collection<String> attachedSwitches, Vip vip,  Collection<Address> ips) {
 		return createLoadBalancer(name, attachedSwitches, vip, ips, null);
 	}
-
+	
+	public Future<LoadBalancer> createLoadBalancer(String name, String gatewaySwitch, Vip vip,  Collection<Address> ips) {
+		return createLoadBalancer(name, null, gatewaySwitch, vip, ips, null);
+	}
+	
 	public Future<LoadBalancer> createLoadBalancer(String name, Collection<String> attachedSwitches, Vip vip,  Collection<Address> ips, Map<String, String> externalIds) {
+		return createLoadBalancer(name,attachedSwitches,null,vip,ips,externalIds);
+	}
+	
+	public Future<LoadBalancer> createLoadBalancer(String name, Collection<String> attachedSwitches, String gatewaySwitch, Vip vip,  Collection<Address> ips, Map<String, String> externalIds) {
 		Promise<LoadBalancer> promise = eventLoopGroup.next().newPromise();
 		String lbName = Joiner.on(':').join(name, vip.getProtocol().getValue());
 		
 		Promise<LoadBalancer> createLoadBalancerPromise = eventLoopGroup.next().newPromise();
-		Future<LoadBalancer> existing = checkingLbExists.computeIfAbsent(lbName, (k)->createLoadBalancerIfNotExist(createLoadBalancerPromise,lbName,attachedSwitches,vip,ips,externalIds));
+		Future<LoadBalancer> existing = checkingLbExists.computeIfAbsent(lbName, (k)->createLoadBalancerIfNotExist(createLoadBalancerPromise,lbName,attachedSwitches,gatewaySwitch,vip,ips,externalIds));
 		
 		if(existing!=createLoadBalancerPromise){
 			createLoadBalancerPromise.cancel(false);
@@ -397,7 +489,7 @@ public class OVNNbClient {
 		
 	}
 
-	private Future<LoadBalancer> createLoadBalancerIfNotExist(Promise<LoadBalancer> promise, String name, Collection<String> attachedSwitches, Vip vip,
+	private Future<LoadBalancer> createLoadBalancerIfNotExist(Promise<LoadBalancer> promise, String name, Collection<String> attachedSwitches, String gatewayRouter, Vip vip,
 			Collection<Address> ips, Map<String, String> externalIds) {
 		log.info("Create load balancer {}[{}]: {}={}",name,vip.getProtocol(),vip,ips);
 		getLoadBalancer(name).addListener(future->{
@@ -410,9 +502,23 @@ public class OVNNbClient {
 					checkingLbExists.remove(name);
 					onSuccess(futureLb,promise,result->{
 						UUID lbUid = (UUID) result;
-						attachLoadBalancerToSwitch(eventLoopGroup.next().newPromise(), lbUid, attachedSwitches).addListener(futureAttach->
+						EventLoop loop = eventLoopGroup.next();
+						PromiseCombiner combiner = new PromiseCombiner();
+						Promise<Void> combinedPromise = loop.newPromise();
+						combinedPromise.addListener(futureAttach->
 							onSuccess(futureAttach,promise,attach->promise.setSuccess(loadBalancer(lbUid,name, vip, ips, externalIds)))
 						);
+						if(attachedSwitches!=null){
+							Promise<Void> switchPromise = loop.newPromise();
+							combiner.add((Future<?>)switchPromise);
+							attachLoadBalancerToSwitch(switchPromise, lbUid, attachedSwitches);
+						}
+						if(gatewayRouter!=null){
+							Promise<Void> routerPromise = loop.newPromise();
+							combiner.add((Future<?>)routerPromise);
+							attachLoadBalancerToRouter(routerPromise, lbUid, gatewayRouter);
+						}
+						combiner.finish(combinedPromise);
 					});
 				});
 			}

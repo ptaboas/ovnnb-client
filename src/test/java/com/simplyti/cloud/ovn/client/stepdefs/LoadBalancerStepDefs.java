@@ -24,6 +24,7 @@ import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.domain.Address;
 import com.simplyti.cloud.ovn.client.domain.Vip;
 import com.simplyti.cloud.ovn.client.domain.nb.LoadBalancer;
+import com.simplyti.cloud.ovn.client.domain.nb.LogicalRouter;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
 import com.simplyti.cloud.ovn.client.domain.nb.Protocol;
 import com.simplyti.cloud.ovn.client.ovsdb.exceptions.OVSDBException;
@@ -55,6 +56,13 @@ public class LoadBalancerStepDefs {
 		assertThat(result.getNow(),notNullValue());
 	}
 	
+	@When("^I create a \"([^\"]*)\" load balancer with name \"([^\"]*)\", virtual ip \"([^\"]*)\", targets \"([^\"]*)\" attached to logical router \"([^\"]*)\"$")
+	public void iCreateALoadBalancerWithNameVirtualIpTargetsAttachedToLogicalRouter(Protocol protocol, String name, String vipStr, List<String> targets, String lr) throws InterruptedException{
+		Future<LoadBalancer> result = createLoadBalancerToRouter(protocol,name,vipStr,targets,lr).await();
+		assertTrue(result.isSuccess());
+		assertThat(result.getNow(),notNullValue());
+	}
+	
 	@When("^I create a \"([^\"]*)\" load balancer with name \"([^\"]*)\", virtual ip \"([^\"]*)\", targets \"([^\"]*)\" and external ids \"([^\"]*)\" attached to logical switch \"([^\"]*)\"$")
 	public void iCreateALoadBalancerWithNameVirtualIpTargetsAndExternalIdsAttachedToLogicalSwitch(Protocol protocol, String name, String vipStr, List<String> targets, String externalIds, String ls) throws Throwable {
 		Map<String, String> externalIdsMap = Splitter.on(',').withKeyValueSeparator('=').split(externalIds);
@@ -66,6 +74,18 @@ public class LoadBalancerStepDefs {
 	@When("^I asynchronously create a \"([^\"]*)\" load balancer with name \"([^\"]*)\", virtual ip \"([^\"]*)\", targets \"([^\"]*)\" attached to logical switch \"([^\"]*)\" getting \"([^\"]*)\"$")
 	public void iAsynchronouslyCreateALoadBalancerWithNameVirtualIpTargetsAttachedToLogicalSwitchGetting(Protocol protocol, String name, String vipStr, List<String> targets, String ls, String promisekey) throws Throwable {
 		scenarioData.put(promisekey, createLoadBalancer(protocol,name,vipStr,targets,ls,null));
+	}
+	
+	private Future<LoadBalancer> createLoadBalancerToRouter(Protocol protocol, String name, String vipStr, List<String> targets, String lr) {
+		Iterable<String> vipIt = Splitter.on(':').split(vipStr);
+		String port = Iterables.get(vipIt, 1,null);
+		Vip vip = new Vip(Iterables.get(vipIt, 0),port!=null?Integer.parseInt(port):null,protocol);
+		List<Address> ips = targets.stream().map(str->{
+			Iterable<String> addressIt = Splitter.on(':').split(str);
+			String ipPort = Iterables.get(addressIt, 1,null);
+			return new Address(Iterables.get(addressIt, 0),ipPort!=null?Integer.parseInt(ipPort):null);
+		}).collect(Collectors.toList());
+		return client.createLoadBalancer(name, lr, vip, ips);
 	}
 
 	private Future<LoadBalancer> createLoadBalancer(Protocol protocol, String name, String vipStr, List<String> targets, String ls, Map<String,String> externalIds) {
@@ -144,6 +164,13 @@ public class LoadBalancerStepDefs {
 	@Then("^I check that logical switch \"([^\"]*)\" contains load balancer \"([^\"]*)\"$")
 	public void iCheckThatLogicalSwitchContainsLoadBalancer(String lsKey, String lbKey) throws Throwable {
 		LogicalSwitch ls = (LogicalSwitch) scenarioData.get(lsKey);
+		LoadBalancer lb = (LoadBalancer) scenarioData.get(lbKey);
+		assertThat(ls.getLoadBalancers(),hasItem(lb.getUuid()));
+	}
+	
+	@Then("^I check that logical router \"([^\"]*)\" contains load balancer \"([^\"]*)\"$")
+	public void iCheckThatLogicalRouterContainsLoadBalancer(String lsKey, String lbKey) throws Throwable {
+		LogicalRouter ls = (LogicalRouter) scenarioData.get(lsKey);
 		LoadBalancer lb = (LoadBalancer) scenarioData.get(lbKey);
 		assertThat(ls.getLoadBalancers(),hasItem(lb.getUuid()));
 	}
