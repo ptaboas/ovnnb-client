@@ -18,7 +18,6 @@ import com.google.common.base.Splitter;
 import com.simplyti.cloud.ovn.client.OVNNbClient;
 import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalRouter;
-import com.simplyti.cloud.ovn.client.domain.nb.LogicalSwitch;
 
 import cucumber.api.java.en.Given;
 import cucumber.api.java.en.Then;

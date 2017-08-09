@@ -8,11 +8,16 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-@EqualsAndHashCode
+@EqualsAndHashCode(of={"host","port"})
 public class Address {
+	
+	public Address(String host,Integer port){
+		this(host,port,null);
+	}
 	
 	private final String host;
 	private final Integer port;
+	private final String portName;
 	
 	@Override
 	public String toString(){

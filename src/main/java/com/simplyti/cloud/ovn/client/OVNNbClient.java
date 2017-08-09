@@ -441,7 +441,11 @@ public class OVNNbClient {
 	}
 	
 	public Future<LoadBalancer> createLoadBalancer(String name, String gatewaySwitch, Vip vip,  Collection<Address> ips) {
-		return createLoadBalancer(name, null, gatewaySwitch, vip, ips, null);
+		return createLoadBalancer(name, gatewaySwitch, vip, ips, null);
+	}
+	
+	public Future<LoadBalancer> createLoadBalancer(String name, String gatewaySwitch, Vip vip,  Collection<Address> ips, Map<String, String> externalIds) {
+		return createLoadBalancer(name, null, gatewaySwitch, vip, ips, externalIds);
 	}
 	
 	public Future<LoadBalancer> createLoadBalancer(String name, Collection<String> attachedSwitches, Vip vip,  Collection<Address> ips, Map<String, String> externalIds) {
@@ -460,7 +464,7 @@ public class OVNNbClient {
 			existing.addListener(futureLoadBalancer->{
 				onSuccess(futureLoadBalancer,promise,result->{
 					LoadBalancer loadBalancer = (LoadBalancer) result;
-					createOrUpdateVirtualIp(promise,loadBalancer,vip,ips);
+					createLoadBalancerVip(promise,loadBalancer,vip,ips);
 				});
 			});
 		}else{
@@ -471,7 +475,7 @@ public class OVNNbClient {
 		return promise;
 	}
 
-	private void createOrUpdateVirtualIp(Promise<LoadBalancer> promise, LoadBalancer loadBalancer, Vip vip, Collection<Address> ips) {
+	private void createLoadBalancerVip(Promise<LoadBalancer> promise, LoadBalancer loadBalancer, Vip vip, Collection<Address> ips) {
 		String existingTargets = loadBalancer.getVips().get(Joiner.on(':').join(vip.getHost(),vip.getPort()));
 		if(existingTargets!=null){
 			if(sameTargets(existingTargets, ips)){
@@ -496,7 +500,7 @@ public class OVNNbClient {
 			if(future.getNow()!=null){
 				checkingLbExists.remove(name);
 				LoadBalancer existingLb = (LoadBalancer) future.getNow();
-				createOrUpdateVirtualIp(promise,existingLb,vip,ips);
+				createLoadBalancerVip(promise,existingLb,vip,ips);
 			}else{
 				createLoadBalancer(eventLoopGroup.next().newPromise(),name, vip,ips,externalIds).addListener(futureLb->{
 					checkingLbExists.remove(name);
@@ -530,7 +534,7 @@ public class OVNNbClient {
 		Iterable<String> existingTargetList = Splitter.on(',').split(existingTargets);
 		if(Iterables.size(existingTargetList)==ips.size()){
 			return ips.stream().map(ip->Joiner.on(':').join(ip.getHost(),ip.getPort()))
-				.anyMatch(requiredTarget->Iterables.contains(existingTargetList, requiredTarget));
+				.allMatch(requiredTarget->Iterables.contains(existingTargetList, requiredTarget));
 		}else{
 			return false;
 		}
