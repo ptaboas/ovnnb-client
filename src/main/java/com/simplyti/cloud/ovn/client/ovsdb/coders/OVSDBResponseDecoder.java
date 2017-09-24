@@ -54,31 +54,38 @@ public class OVSDBResponseDecoder extends SimpleChannelInboundHandler<JsonRpcRes
 			ResourceConsumer<UUID> uuidConsumer = (ResourceConsumer<UUID>) consumer;
 			uuidConsumer.accept(toUUID((List<?>)result.get("uuid")));
 		}else if(resolved.isInstanceOf(Collection.class)){
-			@SuppressWarnings("unchecked")
-			ResourceConsumer<Collection<Object>> objConsumer = (ResourceConsumer<Collection<Object>>) consumer;
-			if(msg.getResult().stream().filter(item-> item instanceof Map).findFirst().isPresent()){
-				Map<?,?> resultMap = (Map<?, ?>) Iterables.get(msg.getResult(), 0);
-				Collection<?> rows = (Collection<?>) resultMap.get("rows");
-				ResolvedType itemClass = resolved.typeParametersFor(Collection.class).get(0);
-				List<Object> resultList = rows.stream().map(Map.class::cast)
-					.map(item->toObject(item,itemClass))
-					.collect(Collectors.toList());
-				
-				objConsumer.accept(resultList);
-			}else{
-				objConsumer.accept(msg.getResult());
-			}
+			handleCollection(msg,consumer,resolved);
 		}else{
+			handleObject(msg,consumer);
+		}
+	}
+	
+	private void handleObject(JsonRpcResponse msg, ResourceConsumer<?> consumer) {
+		Map<?,?> resultMap = (Map<?, ?>) Iterables.get(msg.getResult(), 0);
+		Collection<?> rows = (Collection<?>) resultMap.get("rows");
+		if(rows.isEmpty()){
+			consumer.accept(null);
+		}else{
+			@SuppressWarnings("unchecked")
+			ResourceConsumer<Object>objConsumer = (ResourceConsumer<Object>) consumer;
+			objConsumer.accept(toObject((Map<?, ?>) Iterables.get(rows, 0),typeResolver.resolve(consumer.getResourceClass().getType())));
+		}
+	}
+
+	private void handleCollection(JsonRpcResponse msg, ResourceConsumer<?> consumer, ResolvedType resolved) {
+		@SuppressWarnings("unchecked")
+		ResourceConsumer<Collection<Object>> objConsumer = (ResourceConsumer<Collection<Object>>) consumer;
+		if(msg.getResult().stream().filter(item-> item instanceof Map).findFirst().isPresent()){
 			Map<?,?> resultMap = (Map<?, ?>) Iterables.get(msg.getResult(), 0);
 			Collection<?> rows = (Collection<?>) resultMap.get("rows");
-			if(rows.isEmpty()){
-				consumer.accept(null);
-			}else{
-				@SuppressWarnings("unchecked")
-				ResourceConsumer<Object>objConsumer = (ResourceConsumer<Object>) consumer;
-				objConsumer.accept(toObject((Map<?, ?>) Iterables.get(rows, 0),typeResolver.resolve(consumer.getResourceClass().getType())));
-			}
+			ResolvedType itemClass = resolved.typeParametersFor(Collection.class).get(0);
+			List<Object> resultList = rows.stream().map(Map.class::cast)
+				.map(item->toObject(item,itemClass))
+				.collect(Collectors.toList());
 			
+			objConsumer.accept(resultList);
+		}else{
+			objConsumer.accept(msg.getResult());
 		}
 	}
 	
