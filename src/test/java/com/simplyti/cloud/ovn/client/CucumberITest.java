@@ -1,10 +1,16 @@
 package com.simplyti.cloud.ovn.client;
 
+import static org.awaitility.Awaitility.await;
+
+import java.util.concurrent.TimeUnit;
+
+import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 
 import cucumber.api.CucumberOptions;
 import cucumber.api.SnippetType;
 import cucumber.api.junit.Cucumber;
+import io.netty.channel.nio.NioEventLoopGroup;
 
 @RunWith(Cucumber.class)
 @CucumberOptions(
@@ -12,4 +18,17 @@ import cucumber.api.junit.Cucumber;
 		snippets=SnippetType.CAMELCASE,
 		plugin="pretty"
 		)
-public class CucumberITest {}
+public class CucumberITest {
+	
+	@BeforeClass
+	public static void health(){
+		OVNNbClient client = OVNNbClient.builder()
+				.eventLoop(new NioEventLoopGroup())
+				.server("localhost",6641)
+				.verbose(true)
+				.build();
+		
+		await().pollInterval(10, TimeUnit.SECONDS).atMost(5,TimeUnit.MINUTES)
+		.until(()->client.dbs().await().isSuccess());
+	}
+}

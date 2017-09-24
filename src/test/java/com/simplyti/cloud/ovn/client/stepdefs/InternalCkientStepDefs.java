@@ -16,7 +16,6 @@ import javax.inject.Inject;
 
 import com.simplyti.cloud.ovn.client.OVNNbClient;
 
-import cucumber.api.java.Before;
 import cucumber.api.java.en.Then;
 import cucumber.api.java.en.When;
 import io.netty.util.concurrent.Future;
@@ -28,13 +27,6 @@ public class InternalCkientStepDefs {
 	
 	@Inject
 	private Map<String,Object> scenarioData;
-	
-	@Before
-	public void health(){
-		await().pollInterval(1, TimeUnit.SECONDS).atMost(5,TimeUnit.MINUTES)
-			.until(()->client.dbs().await().isSuccess());
-	}
-	
 	
 	@When("^I get list of databases as \"([^\"]*)\"$")
 	public void iGetListOfDatabasesAs(String key) throws Throwable {
