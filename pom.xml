@@ -141,6 +141,19 @@
 							</arguments>
 						</configuration>
 					</execution>
+					<!-- Pull Docker compose images -->
+					<execution>
+						<id>docker-compose-build</id>
+						<phase>pre-integration-test</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<configuration>
+							<arguments>
+								<argument>build</argument>
+							</arguments>
+						</configuration>
+					</execution>
 					<!-- Start Docker compose -->
 					<execution>
 						<id>docker-compose-up</id>
