@@ -46,14 +46,14 @@
 		<maven-javadoc-plugin.version>3.0.0-M1</maven-javadoc-plugin.version>
 		<maven-gpg-plugin.version>1.6</maven-gpg-plugin.version>
 
-		<lombok.version>1.16.16</lombok.version>
-		<netty.version>4.1.11.Final</netty.version>
-		<jackson.version>2.8.8.1</jackson.version>
-		<classmate.version>1.3.3</classmate.version>
+		<lombok.version>1.16.18</lombok.version>
+		<netty.version>4.1.15.Final</netty.version>
+		<jackson.version>2.9.1</jackson.version>
+		<classmate.version>1.3.4</classmate.version>
 
-		<guava.version>22.0</guava.version>
+		<guava.version>23.0</guava.version>
 
-		<log4j.version>2.8.2</log4j.version>
+		<log4j.version>2.9.0</log4j.version>
 
 		<junit.version>4.12</junit.version>
 		<hamcrest.version>1.3</hamcrest.version>
