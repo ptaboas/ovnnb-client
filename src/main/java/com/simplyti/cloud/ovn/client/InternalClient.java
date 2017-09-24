@@ -128,6 +128,7 @@ public class InternalClient {
 			}else{
 				log.error("Error connectig to ovn db: {}. Retrying",channelFuture.cause().getMessage());
 				channelPromise.setFailure(channelFuture.cause());
+				this.acquiringChannel.set(null);
 			}
 		});
 		acquiringChannel.set(channelPromise);
