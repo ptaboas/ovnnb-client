@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-if [ "$TRAVIS_BRANCH" = 'master' ]; then
-	bash <(curl -s https://codecov.io/bash)
-	mvn coveralls:report
-	mvn jar:jar deploy:deploy --settings=./.travis/settings.xml
-fi
+
+openssl aes-256-cbc -K $encrypted_85c50a6b4452_key -iv $encrypted_85c50a6b4452_iv -in ./.travis/codesigning.asc.enc -out codesigning.asc -d
+gpg --fast-import codesigning.asc
+
+mvn --settings=./.travis/settings.xml jar:jar source:jar-no-fork javadoc:jar gpg:sign deploy:deploy

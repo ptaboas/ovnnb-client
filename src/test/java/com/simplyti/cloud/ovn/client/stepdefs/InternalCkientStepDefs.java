@@ -31,7 +31,7 @@ public class InternalCkientStepDefs {
 	
 	@Before
 	public void health(){
-		await().atMost(10,TimeUnit.SECONDS).until(()->client.dbs().await().isSuccess());
+		await().atMost(5,TimeUnit.MINUTES).until(()->client.dbs().await().isSuccess());
 	}
 	
 	
