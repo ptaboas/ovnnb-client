@@ -119,16 +119,20 @@ public class InternalClient {
 				channel.attr(CONSUMERS).set(Maps.newHashMap());
 				channel.attr(RPC_ID_GEN).set(new AtomicInteger());
 				acquiredChannel.set(channel);
-				channelPromise.setSuccess(channel);
 				if(acquireChannelExecutor.inEventLoop()){
 					this.acquiringChannel.set(null);
 				}else{
 					acquireChannelExecutor.submit(()->this.acquiringChannel.set(null));
 				}
+				channelPromise.setSuccess(channel);
 			}else{
 				log.error("Error connectig to ovn db: {}. Retrying",channelFuture.cause().getMessage());
+				if(acquireChannelExecutor.inEventLoop()){
+					this.acquiringChannel.set(null);
+				}else{
+					acquireChannelExecutor.submit(()->this.acquiringChannel.set(null));
+				}
 				channelPromise.setFailure(channelFuture.cause());
-				this.acquiringChannel.set(null);
 			}
 		});
 		acquiringChannel.set(channelPromise);
