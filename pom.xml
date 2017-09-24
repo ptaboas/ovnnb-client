@@ -5,6 +5,30 @@
 	<groupId>com.simplyti.cloud</groupId>
 	<artifactId>ovnnb-client</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	
+	<name>OVN client</name>
+	<description>Open Virtual Network (OVN) client</description>
+	<url>https://github.com/simplyti/ovnnb-client</url>
+	<licenses>
+		<license>
+			<name>Apache License, Version 2.0</name>
+		    <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+		    <distribution>repo</distribution>
+		</license>
+	</licenses>
+	<scm>
+		<url>https://github.com/simplyti/ovnnb-client</url>
+		<connection>scm:git:git://github.com/simplyti/ovnnb-client.git</connection>
+		<developerConnection>scm:git:git@github.com:username/ovnnb-client.git</developerConnection>
+	</scm>
+	
+	<developers>
+		<developer>
+			<id>ptaboas</id>
+			<name>Pablo Taboas</name>
+			<email>p.taboas@simplyti.com</email>
+		</developer>
+	</developers>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
