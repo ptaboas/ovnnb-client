@@ -13,11 +13,6 @@ Scenario: Create Logical router witch external ids
 	When I get the logical router with name "test" as "#ls"
 	Then I check that logical router "#ls" contains external ids "testing=true"
 	
-Scenario: Create an existing logical router should be idempotent
-	When I create a logical router with name "test" getting the created uuid "#uuid"
-	And I create a logical router with name "test" getting the created uuid "#existinguuid"
-	Then I check that uuid "#existinguuid" is equals to "#uuid"
-	
 Scenario: Delete Logical router
 	When I create a logical router with name "test"
 	Then I check that exist a logical router with name "test"

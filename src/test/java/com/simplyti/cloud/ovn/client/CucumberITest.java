@@ -10,5 +10,6 @@ import cucumber.api.junit.Cucumber;
 @CucumberOptions(
 		features="classpath:features",
 		snippets=SnippetType.CAMELCASE,
-		plugin="pretty")
+		plugin="pretty"
+		)
 public class CucumberITest {}

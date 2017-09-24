@@ -1,7 +1,7 @@
 package com.simplyti.cloud.ovn.client.mutation;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.Collection;
+import java.util.Collections;
 
 public class MutationBuilderImpl implements MutationBuilder {
 	
@@ -12,18 +12,18 @@ public class MutationBuilderImpl implements MutationBuilder {
 	}
 
 	@Override
-	public Mutation insert(Set<?> values) {
-		return new Mutation(field,Mutator.INSERT,values);
-	}
-	
-	@Override
-	public Mutation insert(Map<?,?> entry) {
-		return new Mutation(field,Mutator.INSERT,entry);
+	public Mutation insert(Object item) {
+		return new Mutation(field,Mutator.INSERT,Collections.singleton(item));
 	}
 
 	@Override
-	public Mutation delete(Set<?> values) {
+	public Mutation delete(Collection<?> values) {
 		return new Mutation(field,Mutator.DELETE,values);
+	}
+
+	@Override
+	public Mutation delete(Object item) {
+		return new Mutation(field,Mutator.DELETE,Collections.singleton(item));
 	}
 
 }

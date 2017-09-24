@@ -1,14 +1,13 @@
 package com.simplyti.cloud.ovn.client.mutation;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.Collection;
 
 public interface MutationBuilder {
 
-	Mutation insert(Set<?> values);
-	
-	Mutation insert(Map<?,?> entry);
+	Mutation insert(Object value);
 
-	Mutation delete(Set<?> values);
+	Mutation delete(Collection<?> values);
+
+	Mutation delete(Object value);
 
 }

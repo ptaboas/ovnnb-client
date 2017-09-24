@@ -8,7 +8,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThat;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 
@@ -16,8 +16,9 @@ import javax.inject.Inject;
 
 import com.google.common.base.Splitter;
 import com.simplyti.cloud.ovn.client.OVNNbClient;
-import com.simplyti.cloud.ovn.client.criteria.Criteria;
+import com.simplyti.cloud.ovn.client.OvnCriteriaBuilder;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalRouter;
+import com.simplyti.cloud.ovn.client.routers.RouterBuilder;
 
 import cucumber.api.java.en.Given;
 import cucumber.api.java.en.Then;
@@ -34,12 +35,12 @@ public class LogicalRouterStepDefs {
 	
 	@Given("^there not exist any logical router$")
 	public void thereNotExistAnyLogicalRouter() throws Throwable {
-		client.deleteLogicalRouters().await();
+		client.routers().deleteAll().await();
 	}
 	
 	@When("^I create a logical router with name \"([^\"]*)\"$")
 	public UUID iCreateALogicalRouterWithName(String name) throws Throwable {
-		Future<UUID> result = client.createLogicalRouter(name).await();
+		Future<UUID> result = client.routers().builder().withName(name).create().await();
 		assertTrue(result.isSuccess());
 		assertThat(result.getNow(),notNullValue());
 		return result.getNow();
@@ -47,20 +48,16 @@ public class LogicalRouterStepDefs {
 
 	@When("^I create a logical router with name \"([^\"]*)\" and external ids \"([^\"]*)\"$")
 	public void iCreateALogicalRouterWithNameAndExternalIds(String name, String externalIds) throws Throwable {
-		Map<String, String> externalIdsMap = Splitter.on(',').withKeyValueSeparator('=').split(externalIds);
-		Future<UUID> result = client.createLogicalRouter(name,externalIdsMap).await();
+		RouterBuilder builder = client.routers().builder().withName(name);
+		Splitter.on(',').withKeyValueSeparator('=').split(externalIds).forEach((k,v)->builder.withExternalId(k,v));
+		Future<UUID> result = builder.create().await();
 		assertTrue(result.isSuccess());
 		assertThat(result.getNow(),notNullValue());
 	}
 	
-	@When("^I create a logical router with name \"([^\"]*)\" getting the created uuid \"([^\"]*)\"$")
-	public void iCreateALogicalRouterWithNameGettingTheCreatedUuid(String name, String key) throws Throwable {
-		this.scenarioData.put(key, iCreateALogicalRouterWithName(name)) ;
-	}
-	
 	@Then("^I check that exist a logical router with name \"([^\"]*)\"$")
 	public void iCheckThatExistALogicalRouterWithName(String name) throws Throwable {
-		Future<LogicalRouter> result = client.getLogicalRouter(name).await();
+		Future<LogicalRouter> result = client.routers().get(name).await();
 		assertTrue(result.isSuccess());
 		assertThat(result.getNow(),notNullValue());
 		assertThat(result.getNow().getName(),equalTo(name));
@@ -68,14 +65,14 @@ public class LogicalRouterStepDefs {
 	
 	@Then("^I check that exist (\\d+) logical routers$")
 	public void iCheckThatExistLogicalRouters(int size) throws Throwable {
-		Future<List<LogicalRouter>> result = client.getlogicalRouters().await();
+		Future<Collection<LogicalRouter>> result = client.routers().list().await();
 		assertTrue(result.isSuccess());
 		assertThat(result.getNow(),hasSize(size));
 	}
 	
 	@When("^I get the logical router with name \"([^\"]*)\" as \"([^\"]*)\"$")
 	public void iGetTheLogicalRouterWithNameAs(String name, String key) throws Throwable {
-		Future<LogicalRouter> result = client.getLogicalRouter(name).await();
+		Future<LogicalRouter> result = client.routers().get(name).await();
 		this.scenarioData.put(key, result.getNow());
 	}
 	
@@ -89,21 +86,22 @@ public class LogicalRouterStepDefs {
 	
 	@Then("^I check that does not exist logical router with name \"([^\"]*)\"$")
 	public void iCheckThatDoesNotExistLogicalRouterWithName(String name) throws Throwable {
-		Future<LogicalRouter> result = client.getLogicalRouter(name).await();
+		Future<LogicalRouter> result = client.routers().get(name).await();
 		assertTrue(result.isSuccess());
 		assertThat(result.getNow(),nullValue());
 	}
 	
 	@When("^I delete the logical router with name \"([^\"]*)\"$")
 	public void iDeleteTheLogicalRouterWithName(String name) throws Throwable {
-		Future<Void> result = client.deleteLogicalRouter(name).await();
+		Future<Void> result = client.routers().delete(name).await();
 		assertTrue(result.isSuccess());
 	}
 	
 	@When("^I delete logical routers with external ids \"([^\"]*)\"$")
 	public void iDeleteLogicalRoutersWithExternalIds(String externalIds) throws Throwable {
-		Map<String, String> externalIdsMap = Splitter.on(',').withKeyValueSeparator('=').split(externalIds);
-		Future<Void> result = client.deleteLogicalRouters(Criteria.field("external_ids").includes(externalIdsMap)).await();
+		OvnCriteriaBuilder<?> builder = client.routers().where();
+		Splitter.on(',').withKeyValueSeparator('=').split(externalIds).forEach((k,v)->builder.externalId(k).equal(v));
+		Future<Void> result = builder.delete().await();
 		assertTrue(result.isSuccess());
 	}
 	

@@ -1,17 +1,18 @@
 package com.simplyti.cloud.ovn.client;
 
-import com.simplyti.cloud.ovn.client.domain.Address;
 
 import io.netty.channel.EventLoopGroup;
 
 public class OVNNbClientBuilder {
 
-	private Address serverAddress;
 	private boolean vervose;
 	private EventLoopGroup eventLoop;
+	private String host;
+	private int port;
 
 	public OVNNbClientBuilder server(String host, int port) {
-		this.serverAddress = new Address(host,port);
+		this.host=host;
+		this.port=port;
 		return this;
 	}
 	
@@ -26,7 +27,7 @@ public class OVNNbClientBuilder {
 	}
 
 	public OVNNbClient build() {
-		return new OVNNbClient(eventLoop,serverAddress,vervose);
+		return new OVNNbClient(eventLoop,host,port,vervose);
 	}
 
 }

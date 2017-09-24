@@ -20,6 +20,7 @@
 		<lombok.version>1.16.16</lombok.version>
 		<netty.version>4.1.11.Final</netty.version>
 		<jackson.version>2.8.8.1</jackson.version>
+		<classmate.version>1.3.3</classmate.version>
 
 		<guava.version>22.0</guava.version>
 
@@ -27,8 +28,10 @@
 
 		<junit.version>4.12</junit.version>
 		<hamcrest.version>1.3</hamcrest.version>
+		<cthul-matchers.version>1.1.0</cthul-matchers.version>
 		<cucumber.version>1.2.5</cucumber.version>
 		<guice.version>4.1.0</guice.version>
+		<awaitility.version>3.0.0</awaitility.version>
 	</properties>
 
 
@@ -73,9 +76,9 @@
 						<include>**/CucumberITest.java</include>
 					</includes>
 					<argLine>${failsafeArgLine}</argLine>
-					 <systemPropertyVariables>
-					 	<guice.injector-source>com.simplyti.cloud.ovn.client.CustomInjectorSource</guice.injector-source>
-					 </systemPropertyVariables>
+					<systemPropertyVariables>
+						<guice.injector-source>com.simplyti.cloud.ovn.client.CustomInjectorSource</guice.injector-source>
+					</systemPropertyVariables>
 				</configuration>
 				<executions>
 					<execution>
@@ -191,6 +194,11 @@
 			<artifactId>jackson-databind</artifactId>
 			<version>${jackson.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>com.fasterxml</groupId>
+			<artifactId>classmate</artifactId>
+			<version>${classmate.version}</version>
+		</dependency>
 
 		<dependency>
 			<groupId>com.google.guava</groupId>
@@ -223,6 +231,12 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
+			<groupId>org.cthul</groupId>
+			<artifactId>cthul-matchers</artifactId>
+			<version>${cthul-matchers.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
 			<groupId>info.cukes</groupId>
 			<artifactId>cucumber-guice</artifactId>
 			<version>${cucumber.version}</version>
@@ -235,6 +249,12 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
+			<groupId>org.awaitility</groupId>
+			<artifactId>awaitility</artifactId>
+			<version>${awaitility.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
 			<groupId>com.google.inject</groupId>
 			<artifactId>guice</artifactId>
 			<version>${guice.version}</version>
@@ -244,10 +264,15 @@
 	</dependencies>
 	
 	<distributionManagement>
+		<repository>
+			<id>ossrh</id>
+			<name>Nexus Release Repository</name>
+			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+		</repository>
 		<snapshotRepository>
-			<id>sonatype-nexus-snapshots</id>
+			<id>ossrh</id>
 			<name>Sonatype Nexus Snapshots</name>
-			<url>${sonatypeOssDistMgmtSnapshotsUrl}</url>
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
 		</snapshotRepository>
 	</distributionManagement>
 

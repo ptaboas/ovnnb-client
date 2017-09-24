@@ -6,6 +6,6 @@ services:
     ports:
     - 6641:6641
     command:
-    - /usr/local/etc/openvswitch/ovnnb_db.db 
     - --remote=ptcp:6641:0.0.0.0
     - --remote=punix:/usr/local/var/run/openvswitch/ovnnb_db.sock
+    - /usr/local/etc/openvswitch/ovnnb_db.db 

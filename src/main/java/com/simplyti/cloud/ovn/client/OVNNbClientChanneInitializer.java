@@ -28,14 +28,14 @@ public class OVNNbClientChanneInitializer extends ChannelInitializer<SocketChann
 
 	private boolean vervose;
 	
-	public OVNNbClientChanneInitializer(boolean vervose){
+	public OVNNbClientChanneInitializer(boolean vervose,InternalClient client){
 		this.vervose=vervose;
 		logging = new LoggingHandler(LogLevel.INFO);
 		jsonRpcRequestEncoder = new JsonRpcRequestEncoder();
 		jsonRpcRequestDecoder = new JsonRpcMessageDecoder();
 		ovsDBRequestEncoder = new OVSDBRequestEncoder();
 		ovsDBResponseDecoder = new OVSDBResponseDecoder();
-		ovsDBRequestDecoder = new OVSDBRequestDecoder();
+		ovsDBRequestDecoder = new OVSDBRequestDecoder(client);
 	}
 
 	@Override
