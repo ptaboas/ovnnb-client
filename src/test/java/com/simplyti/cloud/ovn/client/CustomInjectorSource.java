@@ -27,7 +27,6 @@ public class CustomInjectorSource extends AbstractModule implements InjectorSour
 		OVNNbClient client = OVNNbClient.builder()
 				.eventLoop(new NioEventLoopGroup())
 				.server("localhost",6641)
-				.verbose(true)
 				.build();
 		
 		bind(OVNNbClient.class).toInstance(client);

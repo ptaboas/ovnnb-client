@@ -58,7 +58,6 @@ public class InternalCkientStepDefs {
 	@Then("^I check that client has received an echo message$")
 	public void iCheckThatClientHasReceivedAnEchoMessage() throws Throwable {
 		await().atMost(10,TimeUnit.SECONDS).until(()->client.internalClient().lastEcho()!=null);
-		;
 	}
 
 }
