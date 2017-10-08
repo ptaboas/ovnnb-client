@@ -134,7 +134,7 @@ Scenario: Delete Load balancer attached to switch with not force option should r
 	And I check that result ptomise "#result" has failure message that match with "referential integrity violation: cannot delete Load_Balancer row .*"
 	
 Scenario: Update unexsisting load balancer
-	When I try to update load balancer "lb" adding virtual ip "10.0.0.1:8080" with targets "192.168.1.1:8080" getting result "#result"
+	When I update load balancer "lb" adding virtual ip "10.0.0.1:8080" with targets "192.168.1.1:8080" getting result "#result"
 	Then I check that result promise "#result" has failed
 	And I check that result ptomise "#result" has failure message that match with "Resource with name lb doesn't exist"
 	

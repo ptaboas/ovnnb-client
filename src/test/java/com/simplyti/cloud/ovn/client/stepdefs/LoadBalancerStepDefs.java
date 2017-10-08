@@ -48,7 +48,7 @@ public class LoadBalancerStepDefs {
 	
 	@Given("^there not exist any load balancer$")
 	public void thereNotExistAnyLoadBalancer() throws Throwable {
-		client.loadBalancers().deleteAll();
+		client.loadBalancers().deleteAll().await();
 	}
 	
 	@When("^I create a \"([^\"]*)\" load balancer with name \"([^\"]*)\", virtual ip \"([^\"]*)\", targets \"([^\"]*)\" attached to logical switch \"([^\"]*)\"$")
@@ -188,8 +188,8 @@ public class LoadBalancerStepDefs {
 		assertTrue(result.isSuccess());
 	}
 	
-	@When("^I try to update load balancer \"([^\"]*)\" adding virtual ip \"([^\"]*)\" with targets \"([^\"]*)\" getting result \"([^\"]*)\"$")
-	public void iTryToUpdateLoadBalancerAddingVirtualIpWithTargetsGettingResult(String name, String vip, List<String> targets, String key) throws Throwable {
+	@When("^I update load balancer \"([^\"]*)\" adding virtual ip \"([^\"]*)\" with targets \"([^\"]*)\" getting result \"([^\"]*)\"$")
+	public void iUpdateLoadBalancerAddingVirtualIpWithTargetsGettingResult(String name, String vip, List<String> targets, String key) throws Throwable {
 		Future<Void> result = updateLb(name,vip,targets);
 		scenarioData.put(key, result);
 	}
