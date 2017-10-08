@@ -1,6 +1,7 @@
 package com.simplyti.cloud.ovn.client.loadbalancers;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -22,6 +23,8 @@ public class LoadBalancerUpdater extends Updater<LoadBalancer> {
 
 	private final DefaultSwitchesApi switches;
 	private final DefaultLoadBalancersApi loadBalanders;
+	
+	private boolean clearBefore = false;
 	
 	private Map<Endpoint,Collection<Endpoint>> addEndpoints;
 	private Map<Endpoint,Collection<Endpoint>> removeEndpoints;
@@ -78,10 +81,13 @@ public class LoadBalancerUpdater extends Updater<LoadBalancer> {
 	}
 
 	private void setVip(LoadBalancer lb) {
+		if(lb==null){
+			return;
+		}
 		Stream<Entry<Endpoint,Collection<Endpoint>>> existingVips = lb.getVips().entrySet().stream()
 			.map(vip->{
 				if(addEndpoints!=null && addEndpoints.containsKey(vip.getKey())){
-					Set<Endpoint> targets = Sets.newHashSet(vip.getValue());
+					Set<Endpoint> targets = Sets.newHashSet(clearBefore?Collections.emptySet():vip.getValue());
 					targets.addAll(addEndpoints.get(vip.getKey()));
 					if(removeEndpoints!=null && removeEndpoints.containsKey(vip.getKey())){
 						targets.removeAll(removeEndpoints.get(vip.getKey()));
@@ -110,6 +116,11 @@ public class LoadBalancerUpdater extends Updater<LoadBalancer> {
 				.collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 		
 		addOperation(loadBalanders.updateVipsOperation(lb.getUuid(),vips));
+	}
+
+	public void setTargets(Endpoint endpoint, Collection<Endpoint> targets) {
+		clearBefore=true;
+		addTargets(endpoint,targets);
 	}
 
 }

@@ -46,8 +46,12 @@ public abstract class AbstractNamedResourceApi<T extends NamedOvsResource> exten
 			Future<T> resourceFuture = get(name);
 			resourceFuture.addListener(future->{
 				if(future.isSuccess()){
-					Collection<OVSDBOperationRequest> cleanOperations = getRemoveReferencesMutations(resourceFuture.getNow().getUuid());
-					client.call(promise, VOID_TYPE, id->deleteByNameRequest(id, name, cleanOperations));
+					if(resourceFuture.getNow()==null){
+						promise.setSuccess(null);
+					}else {
+						Collection<OVSDBOperationRequest> cleanOperations = getRemoveReferencesMutations(resourceFuture.getNow().getUuid());
+						client.call(promise, VOID_TYPE, id->deleteByNameRequest(id, name, cleanOperations));
+					}
 				}else{
 					promise.setFailure(future.cause());
 				}

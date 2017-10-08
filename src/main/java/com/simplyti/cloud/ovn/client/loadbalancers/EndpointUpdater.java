@@ -49,6 +49,9 @@ public class EndpointUpdater extends EndpointBuilder<EndpointUpdater>{
 		this.oldTargets.add(endpoint);
 	}
 
-	
+	public EndpointUpdater setTargets(Collection<Endpoint> targets) {
+		parent.setTargets(endpoint(),targets);
+		return this;
+	}
 
 }

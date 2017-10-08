@@ -12,6 +12,7 @@ import com.simplyti.cloud.ovn.client.domain.db.OVSDBMutateRequest;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBOperationRequest;
 import com.simplyti.cloud.ovn.client.domain.wire.OVSRequest;
 import com.simplyti.cloud.ovn.client.domain.wire.OVSTransactRequest;
+import com.simplyti.cloud.ovn.client.exception.OvnException;
 import com.simplyti.cloud.ovn.client.mutation.Mutation;
 
 import io.netty.util.concurrent.Future;
@@ -107,7 +108,9 @@ public abstract class Updater<T> {
 			Promise<Void> lazyPatch = client.newPromise();
 			resourceDependantPatchesCombiner.add((Future<?>)lazyPatch);
 			currentFuture.addListener(future->{
-				if(currentFuture.isSuccess()){
+				if(currentFuture.get()==null){
+					lazyPatch.setFailure(new OvnException("Resource with name "+name+" doesn't exist"));
+				}else if(currentFuture.isSuccess()){
 					consumer.accept(currentFuture.getNow());
 					lazyPatch.setSuccess(null);
 				}else{

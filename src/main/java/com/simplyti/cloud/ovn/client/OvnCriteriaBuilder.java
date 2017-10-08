@@ -1,5 +1,6 @@
 package com.simplyti.cloud.ovn.client;
 
+import java.util.Collection;
 import java.util.Map;
 
 import com.google.common.collect.Maps;
@@ -18,8 +19,8 @@ public class OvnCriteriaBuilder<T extends OvsResource> {
 		this.api=api;
 	}
 
-	public ExternalIdConditionBuilder externalId(String key) {
-		return new ExternalIdConditionBuilder(this,key);
+	public ExternalIdConditionBuilder<T> externalId(String key) {
+		return new ExternalIdConditionBuilder<T>(this,key);
 	}
 
 	public Future<Void> delete() {
@@ -35,6 +36,10 @@ public class OvnCriteriaBuilder<T extends OvsResource> {
 
 	public Future<Void> delete(boolean forced) {
 		return api.delete(Criteria.field("external_ids").includes(externalIds),forced);
+	}
+
+	public Future<Collection<T>> list() {
+		return api.list(Criteria.field("external_ids").includes(externalIds));
 	}
 
 }

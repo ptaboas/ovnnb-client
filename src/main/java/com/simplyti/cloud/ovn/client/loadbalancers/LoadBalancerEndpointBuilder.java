@@ -32,4 +32,9 @@ public class LoadBalancerEndpointBuilder extends EndpointBuilder<LoadBalancerEnd
 		return parentBuilder;
 	}
 
+	public LoadBalancerEndpointBuilder setTargets(Collection<Endpoint> targets) {
+		this.targets=targets;
+		return this;
+	}
+
 }

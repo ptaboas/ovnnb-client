@@ -209,7 +209,8 @@ public class OVSDBResponseDecoder extends SimpleChannelInboundHandler<JsonRpcRes
 
 	private void argumentIndexFor(ResolvedField field, Parameter[] parameters,Object[] args,Object value) {
 		for(int index=0;index<parameters.length;index++){
-			if(parameters[index].getType().equals(field.getRawMember().getType())){
+			ResolvedType parameterType = new TypeResolver().resolve(parameters[index].getParameterizedType());
+			if(parameterType.equals(field.getType())){
 				args[index]=value;
 			}
 		}

@@ -102,6 +102,15 @@ public class LogicalSwitchStepDefs {
 		assertThat(result.getNow(),hasSize(size));
 	}
 	
+	@Then("^I check that exist (\\d+) logical switches with external ids \"([^\"]*)\"$")
+	public void iCheckThatExistLogicalSwitchesWithExternalIds(int size, String externalIds) throws Throwable {
+		OvnCriteriaBuilder<LogicalSwitch> criteriaBuilder = client.switches().where();
+		Splitter.on(',').withKeyValueSeparator('=').split(externalIds).forEach((k,v)->criteriaBuilder.externalId(k).equal(v));
+		Future<Collection<LogicalSwitch>> result = criteriaBuilder.list().await();
+		assertTrue(result.isSuccess());
+		assertThat(result.getNow(),hasSize(size));
+	}
+	
 	@When("^I get the logical switch with name \"([^\"]*)\" as \"([^\"]*)\"$")
 	public void iGetTheLogicalSwitchWithNameAs(String name, String key) throws Throwable {
 		Future<LogicalSwitch> result = client.switches().get(name).await();

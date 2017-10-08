@@ -25,13 +25,21 @@ Scenario: Delete Logical switch
 	When I delete the logical switch with name "test"
 	Then I check that does not exist logical switch with name "test"
 	
-
+Scenario: Delete unexsisting Logical switch
+	When I delete the logical switch with name "test"
+	Then I check that does not exist logical switch with name "test"
+	
 Scenario: Delete multiple logical switch using custom criteria
 	When I create a logical switch with name "switch1" and external ids "testing=true"
 	And I create a logical switch with name "switch2" and external ids "testing=true"
 	Then I check that exist 2 logical switches
 	When I delete logical switches with external ids "testing=true"
 	Then I check that exist 0 logical switches
+	
+Scenario: List multiple logical switch using custom criteria
+	When I create a logical switch with name "switch1" and external ids "testing=true"
+	And I create a logical switch with name "switch2" and external ids "testing=true"
+	Then I check that exist 2 logical switches with external ids "testing=true"
 
 Scenario: Close client shoud close channels, but I should be able to continue using the client as normal
 	When I create a logical switch with name "test"

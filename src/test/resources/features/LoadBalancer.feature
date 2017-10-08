@@ -133,5 +133,19 @@ Scenario: Delete Load balancer attached to switch with not force option should r
 	Then I check that result promise "#result" has failed
 	And I check that result ptomise "#result" has failure message that match with "referential integrity violation: cannot delete Load_Balancer row .*"
 	
+Scenario: Update unexsisting load balancer
+	When I try to update load balancer "lb" adding virtual ip "10.0.0.1:8080" with targets "192.168.1.1:8080" getting result "#result"
+	Then I check that result promise "#result" has failed
+	And I check that result ptomise "#result" has failure message that match with "Resource with name lb doesn't exist"
 	
-	
+Scenario: Update Load balancer virtual ip setting new targets
+	When I create a logical switch with name "switch"
+	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080,192.168.1.2:8080" attached to logical switch "switch"
+	Then I check that exist a load balancer with name "lb1"
+	When I get the load balancer with name "lb1" as "#lb"
+	Then I check that load balancer "#lb" has 1 virtual ips
+	And I check that load balancer "#lb" contains virtual ip "10.0.0.1:8080" with targets "192.168.1.1:8080,192.168.1.2:8080"
+	When I set virtual ip "10.0.0.1:8080" targets to "192.168.2.1:8080,192.168.2.2:8080" to load balancer "#lb"
+	When I get the load balancer with name "lb1" as "#lb"
+	Then I check that load balancer "#lb" has 1 virtual ips
+	And I check that load balancer "#lb" contains virtual ip "10.0.0.1:8080" with targets "192.168.2.1:8080,192.168.2.2:8080"

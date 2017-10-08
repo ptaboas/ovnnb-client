@@ -151,6 +151,21 @@ public class LoadBalancerStepDefs {
 		assertTrue(result.isSuccess());
 	}
 	
+	@When("^I set virtual ip \"([^\"]*)\" targets to \"([^\"]*)\" to load balancer \"([^\"]*)\"$")
+	public void iSetVirtualIpTargetsToToLoadBalancer(String vip, List<String> targets, String lbKey) throws Throwable {
+		Endpoint endpointVip = toEndpoint(vip);
+		LoadBalancer lb = (LoadBalancer) scenarioData.get(lbKey);
+		
+		Future<Void> result = client.loadBalancers().update(lb.getUuid())
+				.virtualIp()
+					.ip(endpointVip.getIp())
+					.port(endpointVip.getPort())
+						.setTargets(targets.stream().map(this::toEndpoint).collect(Collectors.toList()))
+						.uptate().update().await();
+			
+		assertTrue(result.isSuccess());
+	}
+	
 	@When("^I add targets \"([^\"]*)\" to virtual ip \"([^\"]*)\" in load balancer \"([^\"]*)\"$")
 	public void iAddTargetsToVirtualIpInLoadBalancer(List<String> targets, String vip, String lbKey) throws Throwable {
 		Endpoint endpointVip = toEndpoint(vip);
@@ -173,7 +188,29 @@ public class LoadBalancerStepDefs {
 		assertTrue(result.isSuccess());
 	}
 	
+	@When("^I try to update load balancer \"([^\"]*)\" adding virtual ip \"([^\"]*)\" with targets \"([^\"]*)\" getting result \"([^\"]*)\"$")
+	public void iTryToUpdateLoadBalancerAddingVirtualIpWithTargetsGettingResult(String name, String vip, List<String> targets, String key) throws Throwable {
+		Future<Void> result = updateLb(name,vip,targets);
+		scenarioData.put(key, result);
+	}
 	
+	private Future<Void> updateLb(String name, String vip, List<String> targets) throws InterruptedException {
+		Endpoint endpointVip = toEndpoint(vip);
+		EndpointUpdater updater = client.loadBalancers().update(name).virtualIp()
+			.ip(endpointVip.getIp())
+			.port(endpointVip.getPort());
+		
+		for(String targetStrp:targets){
+			Endpoint target = toEndpoint(targetStrp);
+			updater = updater.target()
+				.ip(target.getIp())
+				.port(target.getPort())
+				.add();
+		}
+		
+		return updater.uptate().update().await();
+	}
+
 	@When("^I delete targets \"([^\"]*)\" from virtual ip \"([^\"]*)\" in load balancer \"([^\"]*)\"$")
 	public void iDeleteTargetsFromVirtualIpInLoadBalancer(List<String> targets, String vip, String lbKey) throws Throwable {
 		Endpoint endpointVip = toEndpoint(vip);
