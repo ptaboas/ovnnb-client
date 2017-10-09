@@ -2,7 +2,7 @@ version: '2'
 
 services:
   ovsdb:
-    build: ./ovsdb
+    image: simplyti/ovsdb:2.8.1-onbuild
     ports:
     - 6641:6641
     command:
