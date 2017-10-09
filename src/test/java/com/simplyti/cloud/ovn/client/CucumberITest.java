@@ -25,7 +25,6 @@ public class CucumberITest {
 		OVNNbClient client = OVNNbClient.builder()
 				.eventLoop(new NioEventLoopGroup())
 				.server("localhost",6641)
-				.verbose(true)
 				.build();
 		
 		await().pollInterval(10, TimeUnit.SECONDS).atMost(5,TimeUnit.MINUTES)

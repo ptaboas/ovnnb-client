@@ -1,5 +1,6 @@
 package com.simplyti.cloud.ovn.client;
 
+import java.nio.channels.ClosedChannelException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,17 +77,22 @@ public class InternalClient {
 			if(future.isSuccess()){
 				Channel channel = (Channel) future.getNow();
 				int reqId = channel.attr(RPC_ID_GEN).get().getAndIncrement();
-				channel.attr(CONSUMERS).get().put(reqId,new ResourceConsumer<T>(promise,resourceClass,results->{
+				ResourceConsumer<T> consumer = new ResourceConsumer<T>(promise,resourceClass,results->{
 					promise.setSuccess(results);
-				}));
-				channel.writeAndFlush(requestSupplier.apply(reqId));
+				});
+				channel.attr(CONSUMERS).get().put(reqId,consumer);
+				channel.writeAndFlush(requestSupplier.apply(reqId)).addListener(f->{
+					if(!f.isSuccess()){
+						consumer.setFailure(f.cause());
+					}
+				});
 			}else{
 				promise.setFailure(future.cause());
 			}
 		});
 		return promise;
 	}
-
+	
 	private Future<Channel> acquireChannel() {
 		Channel currrentChannel = acquiredChannel.get();
 		if(currrentChannel!=null && currrentChannel.isActive()){
@@ -124,6 +130,7 @@ public class InternalClient {
 				}else{
 					acquireChannelExecutor.submit(()->this.acquiringChannel.set(null));
 				}
+				channel.closeFuture().addListener(f->setFailure(channel));
 				channelPromise.setSuccess(channel);
 			}else{
 				log.error("Error connectig to ovn db: {}",channelFuture.cause().getMessage());
@@ -138,6 +145,10 @@ public class InternalClient {
 		acquiringChannel.set(channelPromise);
 	}
 	
+	private void setFailure(Channel channel) {
+		channel.attr(CONSUMERS).get().values().forEach(consumer->consumer.setFailure(new ClosedChannelException()));
+	}
+
 	public <T> Promise<T> newPromise() {
 		return eventLoopGroup.next().newPromise();
 	}
