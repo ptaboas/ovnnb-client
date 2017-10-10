@@ -104,6 +104,7 @@ public abstract class Updater<T> {
 	protected void onCurrentResource(Consumer<T> consumer) {
 		if(currentFuture.isSuccess()){
 			consumer.accept(currentFuture.getNow());
+			resourceDependantPatchesCombiner.add(client.newFailedFuture(new OvnException("Resource with name "+name+" doesn't exist")));
 		}else{
 			Promise<Void> lazyPatch = client.newPromise();
 			resourceDependantPatchesCombiner.add((Future<?>)lazyPatch);

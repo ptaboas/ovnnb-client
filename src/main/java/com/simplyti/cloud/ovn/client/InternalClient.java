@@ -152,6 +152,10 @@ public class InternalClient {
 	public <T> Promise<T> newPromise() {
 		return eventLoopGroup.next().newPromise();
 	}
+	
+	public <T> Future<T> newFailedFuture(Throwable cause) {
+		return eventLoopGroup.next().newFailedFuture(cause);
+	}
 
 	public Future<Void> close() {
 		Promise<Void> promise = acquireChannelExecutor.newPromise();
