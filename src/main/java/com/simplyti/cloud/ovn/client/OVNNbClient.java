@@ -52,8 +52,8 @@ public class OVNNbClient {
 		return internalClient.call(STRING_LIST_TYPE, id->new OVSRequest(id,OVSMethod.LIST_DATABASE,Collections.emptyList()));
 	}
 
-	public void close() {
-		this.internalClient.close();
+	public Future<Void> close() {
+		return this.internalClient.close();
 	}
 
 	public InternalClient internalClient() {

@@ -153,17 +153,19 @@ public class InternalClient {
 		return eventLoopGroup.next().newPromise();
 	}
 
-	public void close() {
+	public Future<Void> close() {
+		Promise<Void> promise = acquireChannelExecutor.newPromise();
 		if(acquireChannelExecutor.inEventLoop()){
-			close0(acquiredChannel.getAndSet(null));
+			close0(acquiredChannel.getAndSet(null),promise);
 		}else{
-			acquireChannelExecutor.submit(()->close0(acquiredChannel.getAndSet(null)));
+			acquireChannelExecutor.submit(()->close0(acquiredChannel.getAndSet(null),promise));
 		}
+		return promise;
 	}
 
-	private void close0(Channel channel) {
+	private void close0(Channel channel, Promise<Void> promise) {
 		if(channel!=null){
-			channel.close();
+			channel.close().addListener(f->promise.setSuccess(null));
 		}
 	}
 

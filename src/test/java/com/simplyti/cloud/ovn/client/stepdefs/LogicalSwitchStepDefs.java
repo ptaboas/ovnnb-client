@@ -160,7 +160,7 @@ public class LogicalSwitchStepDefs {
 	
 	@When("^I close ovn northbound client$")
 	public void iCloseOvnNorthboundClient() throws Throwable {
-		client.close();
+		client.close().await();
 	}
 	
 	@Then("^I check that error \"([^\"]*)\" is instance of \"([^\"]*)\"$")
