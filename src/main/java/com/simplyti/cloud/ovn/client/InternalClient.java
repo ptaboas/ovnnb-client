@@ -2,6 +2,8 @@ package com.simplyti.cloud.ovn.client;
 
 import java.nio.channels.ClosedChannelException;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
+import com.simplyti.cloud.ovn.client.domain.wire.OVSMethod;
 import com.simplyti.cloud.ovn.client.domain.wire.OVSRequest;
 
 import io.netty.bootstrap.Bootstrap;
@@ -33,6 +36,7 @@ public class InternalClient {
 	
 	public static final AttributeKey<Map<Integer,ResourceConsumer<?>>> CONSUMERS = AttributeKey.valueOf("handlers");
 	private static final AttributeKey<AtomicInteger> RPC_ID_GEN = AttributeKey.valueOf("rpcIdGen");
+	private static final AttributeKey<LocalDateTime> LAST_CHECK = AttributeKey.valueOf("lastCheck");
 	
 	private final EventLoopGroup eventLoopGroup;
 	
@@ -81,11 +85,7 @@ public class InternalClient {
 					promise.setSuccess(results);
 				});
 				channel.attr(CONSUMERS).get().put(reqId,consumer);
-				channel.writeAndFlush(requestSupplier.apply(reqId)).addListener(f->{
-					if(!f.isSuccess()){
-						consumer.setFailure(f.cause());
-					}
-				});
+				channel.writeAndFlush(requestSupplier.apply(reqId)).addListener(f->setFailWhenFutureFail(f,consumer));
 			}else{
 				promise.setFailure(future.cause());
 			}
@@ -93,22 +93,57 @@ public class InternalClient {
 		return promise;
 	}
 	
+	private void setFailWhenFutureFail(Future<?> f, ResourceConsumer<?> consumer) {
+		if(!f.isSuccess()){
+			consumer.setFailure(f.cause());
+		}
+	}
+
 	private Future<Channel> acquireChannel() {
 		Channel currrentChannel = acquiredChannel.get();
-		if(currrentChannel!=null && currrentChannel.isActive()){
-			return eventLoopGroup.next().newSucceededFuture(currrentChannel);
-		}
-		
-		Promise<Channel> futureChannel = eventLoopGroup.next().newPromise();
-		if(acquireChannelExecutor.inEventLoop()){
-			acquireChannel(futureChannel);
+		if(currrentChannel!=null){
+			if(currrentChannel.isActive() && currrentChannel.attr(LAST_CHECK).get().isAfter(LocalDateTime.now().minusSeconds(5))){
+				return eventLoopGroup.next().newSucceededFuture(currrentChannel);
+			}else{
+				return checkChannelState(currrentChannel);
+			}
 		}else{
-			acquireChannelExecutor.submit(()->acquireChannel(futureChannel));
+			return acquireNewChannel();
+		}
+	}
+	
+	private Future<Channel> checkChannelState(Channel channel) {
+		Promise<Channel> futureChannel = channel.eventLoop().newPromise();
+		int reqId = channel.attr(RPC_ID_GEN).get().getAndIncrement();
+		Promise<Void> checkFuture = channel.eventLoop().newPromise();
+		ResourceConsumer<Void> consumer = new ResourceConsumer<Void>(checkFuture,new TypeReference<Void>(){},results->checkFuture.setSuccess(results));
+		channel.attr(CONSUMERS).get().put(reqId,consumer);
+		channel.writeAndFlush(new OVSRequest(reqId,OVSMethod.ECHO,Collections.emptyList())).addListener(f->setFailWhenFutureFail(f,consumer));
+		checkFuture.addListener(future->{
+			if(future.isSuccess()){
+				channel.attr(LAST_CHECK).set(LocalDateTime.now());
+				futureChannel.setSuccess(channel);
+			}else{
+				acquireNewChannel(futureChannel);
+			}
+		});
+		return futureChannel;
+	}
+
+	private Future<Channel> acquireNewChannel() {
+		return acquireNewChannel(acquireChannelExecutor.newPromise());
+	}
+
+	private Future<Channel> acquireNewChannel(Promise<Channel> futureChannel) {
+		if(acquireChannelExecutor.inEventLoop()){
+			acquireNewChannel0(futureChannel);
+		}else{
+			acquireChannelExecutor.submit(()->acquireNewChannel0(futureChannel));
 		}
 		return futureChannel;
 	}
-	
-	private void acquireChannel(Promise<Channel> channelPromise) {
+
+	private void acquireNewChannel0(Promise<Channel> channelPromise) {
 		if(acquiringChannel.get()!=null){
 			acquiringChannel.get().addListener(channelFuture->{
 				if(channelFuture.isSuccess()){
@@ -122,6 +157,7 @@ public class InternalClient {
 		bootstrap.connect().addListener(channelFuture->{
 			if(channelFuture.isSuccess()){
 				Channel channel = ((ChannelFuture)channelFuture).channel();
+				channel.attr(LAST_CHECK).set(LocalDateTime.now());
 				channel.attr(CONSUMERS).set(Maps.newHashMap());
 				channel.attr(RPC_ID_GEN).set(new AtomicInteger());
 				acquiredChannel.set(channel);
@@ -151,6 +187,10 @@ public class InternalClient {
 
 	public <T> Promise<T> newPromise() {
 		return eventLoopGroup.next().newPromise();
+	}
+	
+	public <T> Future<T> newSucceededFuture(T object) {
+		return eventLoopGroup.next().newSucceededFuture(object);
 	}
 	
 	public <T> Future<T> newFailedFuture(Throwable cause) {

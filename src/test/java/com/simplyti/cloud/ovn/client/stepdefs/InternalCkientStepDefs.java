@@ -36,6 +36,12 @@ public class InternalCkientStepDefs {
 		scenarioData.put(key, dbs.getNow());
 	}
 	
+	@When("^I get list of databases as \"([^\"]*)\" after (\\d+) seconds$")
+	public void iGetListOfDatabasesAsAfterSeconds(String key, int sec) throws Throwable {
+	    Thread.sleep(sec*1000);
+	    iGetListOfDatabasesAs(key);
+	}
+	
 	@When("^I get list of databases as \"([^\"]*)\" no waiting result$")
 	public void iGetListOfDatabasesAsNoWaitingResult(String key) throws Throwable {
 		Future<List<String>> dbsPromise =  client.dbs();

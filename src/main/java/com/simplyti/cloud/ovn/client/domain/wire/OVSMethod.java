@@ -7,7 +7,8 @@ import lombok.Getter;
 public enum OVSMethod {
 	
 	LIST_DATABASE("list_dbs"),
-	TRANSACT("transact");
+	TRANSACT("transact"), 
+	ECHO("echo");
 	
 	@Getter
 	private final String name;

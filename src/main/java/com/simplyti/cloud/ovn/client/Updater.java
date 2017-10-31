@@ -102,19 +102,29 @@ public abstract class Updater<T> {
 	}
 	
 	protected void onCurrentResource(Consumer<T> consumer) {
-		if(currentFuture.isSuccess()){
-			consumer.accept(currentFuture.getNow());
-			resourceDependantPatchesCombiner.add(client.newFailedFuture(new OvnException("Resource with name "+name+" doesn't exist")));
+		if(currentFuture.isDone()){
+			if(currentFuture.isSuccess()){
+				if(currentFuture.getNow()==null){
+					resourceDependantPatchesCombiner.add(client.newFailedFuture(new OvnException("Resource with name "+name+" doesn't exist")));
+				}else{
+					consumer.accept(currentFuture.getNow());
+					resourceDependantPatchesCombiner.add(client.newSucceededFuture(null));
+				}
+			}else {
+				resourceDependantPatchesCombiner.add(client.newFailedFuture(currentFuture.cause()));
+			}
 		}else{
 			Promise<Void> lazyPatch = client.newPromise();
 			resourceDependantPatchesCombiner.add((Future<?>)lazyPatch);
 			currentFuture.addListener(future->{
-				if(currentFuture.get()==null){
-					lazyPatch.setFailure(new OvnException("Resource with name "+name+" doesn't exist"));
-				}else if(currentFuture.isSuccess()){
-					consumer.accept(currentFuture.getNow());
-					lazyPatch.setSuccess(null);
-				}else{
+				if(currentFuture.isSuccess()){
+					if(currentFuture.getNow()==null){
+						lazyPatch.setFailure(new OvnException("Resource with name "+name+" doesn't exist"));
+					}else{
+						consumer.accept(currentFuture.getNow());
+						lazyPatch.setSuccess(null);
+					}
+				}else {
 					lazyPatch.setFailure(currentFuture.cause());
 				}
 			});

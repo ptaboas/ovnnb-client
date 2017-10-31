@@ -16,7 +16,7 @@ import javax.inject.Inject;
 
 import com.google.common.base.Splitter;
 import com.simplyti.cloud.ovn.client.OVNNbClient;
-import com.simplyti.cloud.ovn.client.OvnCriteriaBuilder;
+import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.domain.nb.LogicalRouter;
 import com.simplyti.cloud.ovn.client.routers.RouterBuilder;
 
@@ -97,11 +97,23 @@ public class LogicalRouterStepDefs {
 		assertTrue(result.isSuccess());
 	}
 	
+	@When("^I delete the logical router with name \"([^\"]*)\" with force option$")
+	public void iDeleteTheLogicalRouterWithNameForced(String name) throws Throwable {
+		Future<Void> result = client.routers().delete(name,true).await();
+		assertTrue(result.isSuccess());
+	}
+	
+	@When("^I delete the logical router \"([^\"]*)\"$")
+	public void iDeleteTheLogicalRouter(String key) throws Throwable {
+		LogicalRouter lr = (LogicalRouter) scenarioData.get(key);
+		Future<Void> result = client.routers().delete(lr.getUuid()).await();
+		assertTrue(result.isSuccess());
+	}
+	
+	
 	@When("^I delete logical routers with external ids \"([^\"]*)\"$")
 	public void iDeleteLogicalRoutersWithExternalIds(String externalIds) throws Throwable {
-		OvnCriteriaBuilder<?> builder = client.routers().where();
-		Splitter.on(',').withKeyValueSeparator('=').split(externalIds).forEach((k,v)->builder.externalId(k).equal(v));
-		Future<Void> result = builder.delete().await();
+		Future<Void> result = client.routers().delete(Criteria.field("external_ids").includes(Splitter.on(',').withKeyValueSeparator('=').split(externalIds))).await();
 		assertTrue(result.isSuccess());
 	}
 	

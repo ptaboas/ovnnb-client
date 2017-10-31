@@ -118,12 +118,13 @@ Scenario: Delete Load balancer by created name attached to router
 	
 Scenario: Delete multiple load balancers
 	When I create a logical switch with name "switch"
-	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080,192.168.1.2:8080" and external ids "testing=true" attached to logical switch "switch"
+	And I create a "TCP" load balancer with name "lb1", virtual ip "10.0.0.1:8080", targets "192.168.1.1:8080,192.168.1.2:8080" and external ids "testing=true,tag=a" attached to logical switch "switch"
 	Then I check that exist a load balancer with name "lb1"
-	When I create a "TCP" load balancer with name "lb2", virtual ip "10.0.0.2:8080", targets "192.168.2.1:8080,192.168.2.2:8080" and external ids "testing=true" attached to logical switch "switch"
+	When I create a "TCP" load balancer with name "lb2", virtual ip "10.0.0.2:8080", targets "192.168.2.1:8080,192.168.2.2:8080" and external ids "testing=true,tag=b" attached to logical switch "switch"
 	Then I check that exist a load balancer with name "lb2"
-	When I delete load balancers with external ids "testing=true" with forced option
-	Then I check that exist 0 load balancers
+	And I check that exist 2 load balancers
+	When I delete load balancers with external ids "testing=true,tag=a" with forced option
+	Then I check that exist 1 load balancers
 	
 Scenario: Delete Load balancer attached to switch with not force option should return an error
 	When I create a logical switch with name "switch"
