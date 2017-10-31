@@ -27,7 +27,7 @@ public class CucumberITest {
 				.server("localhost",6641)
 				.build();
 		
-		await().pollInterval(10, TimeUnit.SECONDS).atMost(5,TimeUnit.MINUTES)
+		await().pollInterval(100, TimeUnit.MILLISECONDS).atMost(5,TimeUnit.MINUTES)
 		.until(()->client.dbs().await().isSuccess());
 	}
 }
