@@ -15,9 +15,6 @@ import java.util.stream.StreamSupport;
 import com.fasterxml.classmate.MemberResolver;
 import com.fasterxml.classmate.ResolvedTypeWithMembers;
 import com.fasterxml.classmate.TypeResolver;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -44,14 +41,10 @@ import io.netty.handler.codec.MessageToMessageEncoder;
 @Sharable
 public class OVSDBRequestEncoder extends MessageToMessageEncoder<OVSRequest>{
 	
-	private final ObjectMapper mapper;
 	private final TypeResolver typeResolver;
 	
 	public OVSDBRequestEncoder(){
 		this.typeResolver = new TypeResolver();
-		this.mapper = new ObjectMapper();
-		mapper.setSerializationInclusion(Include.NON_NULL);
-		mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
 	}
 
 	@Override
@@ -60,7 +53,7 @@ public class OVSDBRequestEncoder extends MessageToMessageEncoder<OVSRequest>{
 		out.add(jsonRpcRequest);
 	}
 
-	private Collection<Object> toParams(OVSRequest msg) {
+	private List<Object> toParams(OVSRequest msg) {
 		return msg.getParams().stream().map(this::toOVSObject).collect(Collectors.toList());
 	}
 

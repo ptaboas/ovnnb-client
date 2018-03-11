@@ -1,7 +1,8 @@
 package com.simplyti.cloud.ovn.client;
 
-
 import io.netty.channel.EventLoopGroup;
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.Log4J2LoggerFactory;
 
 public class OVNNbClientBuilder {
 
@@ -28,6 +29,11 @@ public class OVNNbClientBuilder {
 
 	public OVNNbClient build() {
 		return new OVNNbClient(eventLoop,host,port,vervose);
+	}
+	
+	public OVNNbClientBuilder withLog4J2Logger() {
+		InternalLoggerFactory.setDefaultFactory(Log4J2LoggerFactory.INSTANCE);
+		return this;
 	}
 
 }

@@ -47,13 +47,12 @@
 		<maven-gpg-plugin.version>1.6</maven-gpg-plugin.version>
 
 		<lombok.version>1.16.18</lombok.version>
-		<netty.version>4.1.15.Final</netty.version>
-		<jackson.version>2.9.1</jackson.version>
+		<netty.version>4.1.22.Final</netty.version>
+		<jsoniter.version>0.9.21</jsoniter.version>
+		<guava.version>24.0-jre</guava.version>
 		<classmate.version>1.3.4</classmate.version>
 
-		<guava.version>23.0</guava.version>
-
-		<log4j.version>2.9.0</log4j.version>
+		<log4j.version>2.10.0</log4j.version>
 
 		<junit.version>4.12</junit.version>
 		<hamcrest.version>1.3</hamcrest.version>
@@ -245,6 +244,7 @@
 			<scope>provided</scope>
 		</dependency>
 
+		<!-- Netty -->
 		<dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty-transport</artifactId>
@@ -255,36 +255,28 @@
 			<artifactId>netty-handler</artifactId>
 			<version>${netty.version}</version>
 		</dependency>
-
+		
+		<!-- JSON -->
 		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-databind</artifactId>
-			<version>${jackson.version}</version>
+			<groupId>com.jsoniter</groupId>
+			<artifactId>jsoniter</artifactId>
+			<version>${jsoniter.version}</version>
 		</dependency>
+
 		<dependency>
 			<groupId>com.fasterxml</groupId>
 			<artifactId>classmate</artifactId>
 			<version>${classmate.version}</version>
 		</dependency>
 
+		<!-- Guava -->
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
 			<version>${guava.version}</version>
 		</dependency>
 
-		<dependency>
-			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-api</artifactId>
-			<version>${log4j.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-core</artifactId>
-			<version>${log4j.version}</version>
-		</dependency>
-
-
+		<!-- Test -->
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
@@ -325,6 +317,20 @@
 			<groupId>com.google.inject</groupId>
 			<artifactId>guice</artifactId>
 			<version>${guice.version}</version>
+			<scope>test</scope>
+		</dependency>
+		
+		<!-- Test logging -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>${log4j.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<version>${log4j.version}</version>
 			<scope>test</scope>
 		</dependency>
 

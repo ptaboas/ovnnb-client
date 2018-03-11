@@ -5,8 +5,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
+import com.jsoniter.spi.TypeLiteral;
 import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.criteria.Function;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBDeleteRequest;
@@ -22,7 +22,7 @@ import io.netty.util.concurrent.Promise;
 
 public abstract class AbstractNamedResourceApi<T extends NamedOvsResource> extends AbstractOvsResourceApi<T> implements NamedResourceApi<T>, ResourceApi<T> {
 	
-	private static final TypeReference<UUID> UUID_TYPE = new TypeReference<UUID>(){};
+	private static final TypeLiteral<UUID> UUID_TYPE = new TypeLiteral<UUID>(){};
 	private static final String CREATED_ROW = "created";
 	
 	public AbstractNamedResourceApi(InternalClient client, String resourceTable){

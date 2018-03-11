@@ -3,7 +3,7 @@ package com.simplyti.cloud.ovn.client;
 import java.util.Collections;
 import java.util.List;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.jsoniter.spi.TypeLiteral;
 import com.simplyti.cloud.ovn.client.domain.wire.OVSMethod;
 import com.simplyti.cloud.ovn.client.domain.wire.OVSRequest;
 import com.simplyti.cloud.ovn.client.loadbalancers.DefaultLoadBalancersApi;
@@ -18,7 +18,7 @@ import io.netty.util.concurrent.Future;
 
 public class OVNNbClient {
 	
-	protected static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<List<String>>(){};
+	protected static final TypeLiteral<List<String>> STRING_LIST_TYPE = new TypeLiteral<List<String>>(){};
 	
 	private final InternalClient internalClient;
 	private final DefaultSwitchesApi switches;

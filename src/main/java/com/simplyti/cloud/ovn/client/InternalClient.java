@@ -9,10 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
+import com.jsoniter.spi.TypeLiteral;
 import com.simplyti.cloud.ovn.client.domain.wire.OVSMethod;
 import com.simplyti.cloud.ovn.client.domain.wire.OVSRequest;
 
@@ -27,21 +25,22 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
+import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Log4J2LoggerFactory;
-import lombok.extern.log4j.Log4j2;
 
-@Log4j2
 public class InternalClient {
+	
+	private final InternalLogger log = InternalLoggerFactory.getInstance(getClass());
 	
 	public static final AttributeKey<Map<Integer,ResourceConsumer<?>>> CONSUMERS = AttributeKey.valueOf("handlers");
 	private static final AttributeKey<AtomicInteger> RPC_ID_GEN = AttributeKey.valueOf("rpcIdGen");
 	private static final AttributeKey<LocalDateTime> LAST_CHECK = AttributeKey.valueOf("lastCheck");
+	private static final TypeLiteral<Void> VOID = new TypeLiteral<Void>(){};
 	
 	private final EventLoopGroup eventLoopGroup;
 	
 	private final Bootstrap bootstrap;
-	private final ObjectMapper mapper;
 	
 	private final EventLoop acquireChannelExecutor;
 	private final AtomicReference<Channel> acquiredChannel;
@@ -61,22 +60,19 @@ public class InternalClient {
 			.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
 			.remoteAddress(host,port)
 			.handler(new OVNNbClientChanneInitializer(verbose,this));
-		mapper = new ObjectMapper();
-		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-		mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
 	}
 	
 	private Class<? extends Channel> channelClass() {
 		return NioSocketChannel.class;
 	}
 	
-	public <T> Future<T> call(TypeReference<T> resourceClass, Function<Integer,OVSRequest> requestSupplier) {
+	public <T> Future<T> call(TypeLiteral<T> resourceClass, Function<Integer,OVSRequest> requestSupplier) {
 		Promise<T> promise = eventLoopGroup.next().newPromise();
 		call(promise, resourceClass, requestSupplier);
 		return promise;
 	}
 	
-	public <T> Future<T> call(Promise<T> promise,TypeReference<T> resourceClass, Function<Integer,OVSRequest> requestSupplier) {
+	public <T> Future<T> call(Promise<T> promise,TypeLiteral<T> resourceClass, Function<Integer,OVSRequest> requestSupplier) {
 		acquireChannel().addListener(future->{
 			if(future.isSuccess()){
 				Channel channel = (Channel) future.getNow();
@@ -116,7 +112,7 @@ public class InternalClient {
 		Promise<Channel> futureChannel = channel.eventLoop().newPromise();
 		int reqId = channel.attr(RPC_ID_GEN).get().getAndIncrement();
 		Promise<Void> checkFuture = channel.eventLoop().newPromise();
-		ResourceConsumer<Void> consumer = new ResourceConsumer<Void>(checkFuture,new TypeReference<Void>(){},results->checkFuture.setSuccess(results));
+		ResourceConsumer<Void> consumer = new ResourceConsumer<Void>(checkFuture,VOID,results->checkFuture.setSuccess(results));
 		channel.attr(CONSUMERS).get().put(reqId,consumer);
 		channel.writeAndFlush(new OVSRequest(reqId,OVSMethod.ECHO,Collections.emptyList())).addListener(f->setFailWhenFutureFail(f,consumer));
 		checkFuture.addListener(future->{

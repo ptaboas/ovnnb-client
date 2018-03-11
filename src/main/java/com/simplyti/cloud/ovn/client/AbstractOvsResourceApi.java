@@ -1,6 +1,5 @@
 package com.simplyti.cloud.ovn.client;
 
-
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
@@ -9,8 +8,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
+import com.jsoniter.spi.TypeLiteral;
 import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.criteria.Function;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBDeleteRequest;
@@ -25,21 +24,22 @@ import io.netty.util.concurrent.Promise;
 public abstract class AbstractOvsResourceApi<T extends OvsResource> implements ResourceApi<T> {
 	
 	private static final String NORHBOUND = "OVN_Northbound";
-	protected static final TypeReference<Void> VOID_TYPE = new TypeReference<Void>(){};
+	protected static final TypeLiteral<Void> VOID_TYPE = new TypeLiteral<Void>(){};
 	
 	protected final InternalClient client;
 	
 	protected final String resourceTable;
-	protected final TypeReference<T> resourceClass;
-	private final TypeReference<Collection<T>> resourceListClass;
+	protected final TypeLiteral<T> resourceClass;
+	private final TypeLiteral<Collection<T>> resourceListClass;
 	
 	
+	@SuppressWarnings("unchecked")
 	public AbstractOvsResourceApi(InternalClient client, String resourceTable){
 		this.client=client;
 		this.resourceTable=resourceTable;
 		Type resourceType = ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0];
-		this.resourceClass = new TypeReferenceLiteral<T>(resourceType);
-		this.resourceListClass =  new TypeReferenceLiteral<Collection<T>>(new ParameterizedTypeImpl(Collection.class, resourceType));
+		this.resourceClass = TypeLiteral.create(resourceType);
+		this.resourceListClass =  TypeLiteral.create(new ParameterizedTypeImpl(Collection.class, resourceType));
 	}
 	
 	@Override

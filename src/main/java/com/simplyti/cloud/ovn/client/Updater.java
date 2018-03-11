@@ -5,7 +5,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.jsoniter.spi.TypeLiteral;
 import com.simplyti.cloud.ovn.client.criteria.Criteria;
 import com.simplyti.cloud.ovn.client.criteria.Function;
 import com.simplyti.cloud.ovn.client.domain.db.OVSDBMutateRequest;
@@ -22,7 +22,7 @@ import io.netty.util.internal.shaded.org.jctools.queues.MessagePassingQueue.Cons
 
 public abstract class Updater<T> {
 	
-	private static final TypeReference<Void> VOID_TYPE = new TypeReference<Void>() {};
+	private static final TypeLiteral<Void> VOID_TYPE = new TypeLiteral<Void>() {};
 	
 	protected final InternalClient client;
 	private final String db;
