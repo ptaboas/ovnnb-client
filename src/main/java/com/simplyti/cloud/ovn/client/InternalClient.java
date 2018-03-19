@@ -1,5 +1,10 @@
 package com.simplyti.cloud.ovn.client;
 
+import static io.vavr.API.$;
+import static io.vavr.API.Case;
+import static io.vavr.API.Match;
+import static io.vavr.Predicates.instanceOf;
+
 import java.nio.channels.ClosedChannelException;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -21,6 +26,8 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
@@ -63,7 +70,9 @@ public class InternalClient {
 	}
 	
 	private Class<? extends Channel> channelClass() {
-		return NioSocketChannel.class;
+		return Match(eventLoopGroup).of(
+				Case($(instanceOf(EpollEventLoopGroup.class)), EpollSocketChannel.class),
+				Case($(), NioSocketChannel.class));
 	}
 	
 	public <T> Future<T> call(TypeLiteral<T> resourceClass, Function<Integer,OVSRequest> requestSupplier) {
